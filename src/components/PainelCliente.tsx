@@ -98,7 +98,14 @@ export default function PainelCliente({ cliente, processos, processoInicialId, t
                                 <Pencil size={16} />
                             </button>
                         </h1>
-                        {cliente.numeroNexus && <p className="mt-0.5 text-xs text-slate-500">Nº Nexus {cliente.numeroNexus}</p>}
+                        {(cliente.numeroNexus || p?.natureza) && (
+                            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
+                                {cliente.numeroNexus && <span>Nº Nexus {cliente.numeroNexus}</span>}
+                                {cliente.numeroNexus && p?.natureza && <span aria-hidden="true">·</span>}
+                                {/* Natureza é do processo selecionado na árvore (muda ao trocar de pasta). */}
+                                {p?.natureza && <span>Natureza: <span className="font-medium text-slate-600">{p.natureza}</span></span>}
+                            </p>
+                        )}
                     </div>
                     {/* Órgão no canto, pequeno; a pasta do OneDrive virou cartão ao lado do processo (troca pedida em 14/09). */}
                     {p && (
@@ -134,15 +141,15 @@ export default function PainelCliente({ cliente, processos, processoInicialId, t
 
                 {modo.tipo === 'ver' && p && (
                     <>
-                        <div className="grid gap-4 md:grid-cols-3">
+                        <div className="grid gap-4 md:grid-cols-2">
                             {/* O cartão do número é o atalho para o SEI: clicar nele abre o processo. */}
                             <CartaoInfo icone={FileText} cor="processo" rotulo={p.sistema ?? 'Processo'} valor={p.numero}
-                                detalhe={descreverAcesso(p, acesso)} alerta={expirado} href={p.linkProcesso} titulo="Abrir o processo no sistema de origem (nova aba)" className="md:col-span-2" />
+                                detalhe={descreverAcesso(p, acesso)} alerta={expirado} href={p.linkProcesso} titulo="Abrir o processo no sistema de origem (nova aba)" />
                             <CartaoInfo icone={Folder} cor="pasta" rotulo="Pasta no OneDrive" valor={cliente.linkPasta ? 'Processos do cliente' : 'Sem link'}
                                 detalhe={[cliente.numeroNexus ? `Nº Nexus ${cliente.numeroNexus}` : 'Sem nº Nexus', cliente.linkPasta ? 'Documentos do cliente' : 'Cadastre o link (lápis ao lado do nome)'].join(' · ')}
                                 href={cliente.linkPasta} titulo="Abrir a pasta do cliente no OneDrive (nova aba)" />
                             {/* Natureza saiu do painel a pedido (continua no formulário e na planilha). */}
-                            <CartaoInfo icone={Tag} cor="tipo" rotulo="Tipo" valor={p.tipo} className="md:col-span-2" />
+                            <CartaoInfo icone={Tag} cor="tipo" rotulo="Tipo" valor={p.tipo} />
                             <CartaoInfo icone={Clock} cor="status" rotulo="Status" valor={p.status} />
                         </div>
 

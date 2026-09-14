@@ -34,7 +34,7 @@ export default function CartaoInfo({ icone: Icone, rotulo, valor, detalhe, alert
             </span>
             <span className="min-w-0 flex-1">
                 <span className={`block text-[11px] font-semibold uppercase tracking-[0.14em] ${c.rotulo}`}>{rotulo}</span>
-                <span className="block break-words text-lg font-bold leading-tight text-fg-800">{valor || '—'}</span>
+                <span className="block text-lg [overflow-wrap:normal] font-bold leading-tight text-fg-800">{valor || '—'}</span>
                 {detalhe && <span className={`line-clamp-2 text-sm leading-snug ${alerta ? 'font-semibold text-rose-700' : 'text-slate-600'}`}>{detalhe}</span>}
             </span>
             {href && (
