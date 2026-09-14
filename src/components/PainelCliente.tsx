@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { CalendarDays, Clock, FileText, Folder, History, Landmark, Pencil, Plus, Tag } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Clock, FileText, Folder, History, Landmark, Pencil, Plus, Tag } from 'lucide-react'
 import { estadoAcesso } from '../lib/acesso.ts'
 import { montarArvore } from '../lib/arvore.ts'
 import { formatarDataHora } from '../lib/formatacao.ts'
@@ -90,6 +90,10 @@ export default function PainelCliente({ cliente, processos, processoInicialId, t
             <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:p-8">
                 <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div className="min-w-0 flex-1">
+                        {/* Volta para a tela inicial; a busca e a página de cada coluna continuam como estavam. */}
+                        <a href="#/" className="mb-3 inline-flex items-center gap-1.5 rounded-md px-2 py-1 -ml-2 text-sm font-medium text-fg-700 hover:bg-ouro-100 focus:outline-none focus:ring-2 focus:ring-ouro-500/70">
+                            <ArrowLeft size={16} /> Voltar para a lista de clientes
+                        </a>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ouro-700">Painel do cliente</p>
                         <h1 className="flex items-center gap-2 font-slab text-xl font-bold leading-tight text-fg-700 md:text-2xl">
                             <span className="min-w-0">{cliente.nome}</span>
