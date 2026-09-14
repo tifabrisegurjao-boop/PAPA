@@ -51,6 +51,9 @@ Baseada nos arquivos de marca do escritório (logotipo, mockups, papel de parede
    ```
 4. Em Authentication › Settings › **Authorized domains**, o domínio do site precisa estar listado, senão o login falha sem erro claro.
 
+## Demo no GitHub Pages
+O workflow `.github/workflows/pages.yml` faz o `build:demo` e publica a cada push na `main`. **Em Settings › Pages › Build and deployment, a fonte tem de ser "GitHub Actions".** Em "Deploy from a branch", o GitHub publica também o código-fonte cru (o `index.html` de desenvolvimento, que aponta para `/src/main.tsx`) e esse deploy pode sobrescrever o build — a página fica em branco, só com a mensagem "Carregando o Projeto PAPA…". Depois de trocar a fonte, rode de novo o workflow (Actions › Demo no GitHub Pages › Re-run).
+
 ## Planilha (modelo v2)
 - `planilha/modelo.json` — colunas, ajuda de cada coluna e valores dos menus. **Fonte única**: o gerador e o conversor leem daqui.
 - `planilha/gerar_planilha.py` — gera o modelo vazio, o exemplo fictício e **migra a planilha antiga** (`Planilha1`) para o modelo novo, sem copiar senhas e anotando na coluna PENDÊNCIA tudo que não pôde decidir sozinho.

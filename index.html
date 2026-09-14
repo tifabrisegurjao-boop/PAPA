@@ -11,7 +11,19 @@
         <title>Projeto PAPA · Controle de Processos</title>
     </head>
     <body>
-        <div id="root"></div>
+        <div id="root">
+            <!--
+                O React substitui este conteúdo assim que o sistema carrega. Se a mensagem continuar na tela, a página
+                publicada é o código-fonte cru (o GitHub Pages está em "Deploy from a branch"), não o build.
+            -->
+            <div style="font-family: system-ui, sans-serif; max-width: 34rem; margin: 15vh auto; padding: 0 1.5rem; color: #173a4c; line-height: 1.5">
+                <p style="font-size: 1.25rem; font-weight: 700; margin: 0 0 0.5rem">Carregando o Projeto PAPA…</p>
+                <p style="margin: 0; color: #475569; font-size: 0.9rem">
+                    Se esta mensagem não sumir em alguns segundos, o site está publicando o código-fonte em vez do sistema pronto.
+                    No GitHub: <strong>Settings › Pages › Source = GitHub Actions</strong>, depois rode de novo o workflow "Demo no GitHub Pages".
+                </p>
+            </div>
+        </div>
         <script type="module" src="/src/main.tsx"></script>
     </body>
 </html>
