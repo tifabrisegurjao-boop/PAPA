@@ -14,6 +14,7 @@
         "dados:exemplo": "node scripts/converter.mjs planilha/exemplo/Controle_de_Processos_EXEMPLO.xlsx",
         "dados:firestore": "node scripts/enviar-firestore.mjs",
         "dados:links-exemplo": "node scripts/links-exemplo.mjs",
+        "dados:enriquecer-demo": "node scripts/enriquecer-demo.mjs",
         "regras": "firebase deploy --only firestore:rules --project pagamento-255fc",
         "preview": "vite preview"
     },
