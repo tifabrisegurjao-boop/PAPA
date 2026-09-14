@@ -1,0 +1,53 @@
+# Publica a DEMONSTRAÇÃO (build:demo: sem login, base fictícia, sem Firebase) no GitHub Pages a cada push na main.
+# Em Settings › Pages, a fonte precisa ser "GitHub Actions" (o passo configure-pages liga isso sozinho na 1ª vez).
+# O site fica em https://<conta>.github.io/PAPA/ — os caminhos do build são relativos (base: './'), então funciona na subpasta.
+name: Demo no GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # A base de dados não vai para o repositório (dados/base.json está no .gitignore). Se alguém a tiver
+      # commitado de propósito, ela é usada; senão a demo sai com a base pequena e fictícia do exemplo.
+      - name: Base de dados da demo
+        run: |
+          if [ -f dados/base.json ]; then echo "usando dados/base.json do repositório"; else npm run dados:exemplo; fi
+      - run: npm test
+      - run: npm run build:demo
+      - run: touch dist-demo/.nojekyll
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-demo
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
