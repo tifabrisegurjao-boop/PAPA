@@ -1,0 +1,93 @@
+rules_version = '2';
+
+// Regras do Firestore do projeto `pagamento-255fc` — publicar DESTA pasta: `firebase deploy --only firestore:rules`.
+// Contém as coleções do Nexus (clients, cases — inalteradas) e as do Projeto PAPA (papaClientes, papaProcessos).
+// O arquivo Fabris-Gurjao/firestore.nexus.rules deve ser cópia idêntica deste (ou ser apagado).
+//
+// PAPA: só quem está na coleção `papaEquipe` (documento com id = e-mail da pessoa, criado no Console) lê e grava.
+// Estar logado não basta — a apiKey é pública e, com o cadastro aberto no Auth, "logado" poderia ser qualquer um.
+// Nada é apagado (delete negado); o estado anterior de cada gravação vai para a subcoleção `historico`, que só aceita criação.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // ── Nexus (como estava) ──────────────────────────────────────────────
+    match /clients/{clientId} {
+      allow read, write: if signedIn();
+    }
+
+    match /cases/{caseId} {
+      allow read, write: if signedIn();
+    }
+
+    // ── Projeto PAPA ─────────────────────────────────────────────────────
+    function daEquipe() {
+      return signedIn()
+        && request.auth.token.email != null
+        && exists(/databases/$(database)/documents/papaEquipe/$(request.auth.token.email));
+    }
+
+    // Quem grava assina: `atualizadoPor` é o próprio e-mail (ou "importação:<e-mail>" no script de carga)
+    // e `atualizadoEm` é o carimbo do servidor.
+    function assinado() {
+      let d = request.resource.data;
+      return d.atualizadoPor in [request.auth.token.email, 'importação:' + request.auth.token.email]
+        && d.atualizadoEm == request.time
+        && d.versao is int && d.versao >= 1;
+    }
+
+    function texto(campo, max) {
+      return !(campo in request.resource.data) || (request.resource.data[campo] is string && request.resource.data[campo].size() <= max);
+    }
+
+    match /papaEquipe/{email} {
+      allow read: if daEquipe();
+      allow write: if false; // só pelo Console (ou Admin SDK)
+    }
+
+    match /papaClientes/{clienteId} {
+      allow read: if daEquipe();
+      allow create, update: if daEquipe() && assinado()
+        && request.resource.data.keys().hasOnly(['nome', 'tipoPessoa', 'numeroNexus', 'linkPasta', 'observacao', 'versao', 'ordem', 'atualizadoEm', 'atualizadoPor'])
+        && request.resource.data.nome is string && request.resource.data.nome.size() > 0 && request.resource.data.nome.size() <= 200
+        && (request.resource.data.tipoPessoa == null || request.resource.data.tipoPessoa in ['PF', 'PJ'])
+        && texto('numeroNexus', 10) && texto('linkPasta', 2000) && texto('observacao', 5000);
+      allow delete: if false;
+      match /historico/{versaoId} {
+        allow read: if daEquipe();
+        allow create: if daEquipe();
+        allow update, delete: if false;
+      }
+    }
+
+    match /papaProcessos/{processoId} {
+      allow read: if daEquipe();
+      allow create, update: if daEquipe() && assinado()
+        && request.resource.data.keys().hasOnly(['clienteId', 'numero', 'sistema', 'processoPaiId', 'vinculo', 'orgaoSigla', 'orgaoNome', 'tipo', 'natureza',
+             'objeto', 'status', 'situacaoAtual', 'observacao', 'ultimaMovimentacao', 'linkProcesso', 'codigoCasoNexus', 'acesso', 'versao', 'ordem',
+             'atualizadoEm', 'atualizadoPor'])
+        && request.resource.data.clienteId is string && request.resource.data.clienteId.size() > 0
+        && request.resource.data.numero is string && request.resource.data.numero.size() > 0 && request.resource.data.numero.size() <= 100
+        && (!('vinculo' in request.resource.data) || request.resource.data.vinculo in ['derivado', 'relacionado'])
+        && texto('sistema', 60) && texto('processoPaiId', 200) && texto('orgaoSigla', 60) && texto('orgaoNome', 200) && texto('tipo', 120)
+        && texto('natureza', 60) && texto('objeto', 5000) && texto('status', 60) && texto('situacaoAtual', 20000) && texto('observacao', 20000)
+        && texto('linkProcesso', 2000) && texto('codigoCasoNexus', 40)
+        && (!('ultimaMovimentacao' in request.resource.data) || request.resource.data.ultimaMovimentacao is map)
+        && (!('acesso' in request.resource.data) || request.resource.data.acesso is map);
+      allow delete: if false;
+      match /historico/{versaoId} {
+        allow read: if daEquipe();
+        allow create: if daEquipe();
+        allow update, delete: if false;
+      }
+    }
+
+    // Any path not explicitly matched above is denied for everyone.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
