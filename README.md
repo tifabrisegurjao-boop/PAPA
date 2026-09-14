@@ -57,7 +57,7 @@ Baseada nos arquivos de marca do escritório (logotipo, mockups, papel de parede
 - `planilha/Modelo_Controle_de_Processos_v2.xlsx` — modelo para o escritório (aba Manual explica cada coluna).
 - `planilha/exemplo/Controle_de_Processos_EXEMPLO.xlsx` — base pequena e fictícia (8 clientes) para demonstração.
 - `scripts/converter.mjs` — planilha → JSON (`npm run dados`), gravado em **`dados/base.json`** (fora de `public/`: um arquivo em `public/` entraria em todo build e seria baixável sem login). Mapeia colunas pelo título, não pela posição; nada some: problema vira aviso; emite `observacao`, `ordem` e todos os campos de acesso (pedido, SEI GERAL, término, renovação, situação). **Regra provisória (11/09/2026):** processo sem SITUAÇÃO ATUAL mostra a OBSERVAÇÃO no painel (marcado na tela).
-- `dados/base.json` é servido só pelo `npm run dev` e embutido só no `build:demo` (plugin em `vite.config.ts`); o build de produção não leva base nenhuma. O atual veio da planilha antiga migrada (`Controle_de_Processos_v2_MIGRADO.xlsx`, 73 clientes / 259 processos, dados fictícios segundo o escritório).
+- `dados/base.json` é servido só pelo `npm run dev` e embutido só no `build:demo` (plugin em `vite.config.ts`); o build de produção não leva base nenhuma. Está **commitado de propósito** (decisão de 14/09/2026): é a base fictícia grande (73 clientes / 259 processos, da planilha migrada) que a demo pública do GitHub Pages usa para testes em escala. Para voltar à base pequena: `npm run dados:exemplo`.
 
 ```bash
 python planilha/gerar_planilha.py modelo
