@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { CalendarDays, Clock, ExternalLink, Eye, FileText, Folder, History, Landmark, Pencil, Plus, Search, Tag } from 'lucide-react'
+import { CalendarDays, Clock, FileText, Folder, History, Landmark, Pencil, Plus, Tag } from 'lucide-react'
 import { estadoAcesso } from '../lib/acesso.ts'
 import { montarArvore } from '../lib/arvore.ts'
 import { formatarDataHora } from '../lib/formatacao.ts'
@@ -38,7 +38,6 @@ export default function PainelCliente({ cliente, processos, processoInicialId, t
     const relacionados = processos.filter(x => x.vinculo === 'relacionado')
     const acesso = p ? estadoAcesso(p) : 'desconhecido'
     const expirado = acesso === 'expirado'
-    const nomeSistema = p?.sistema ?? 'sistema de origem'
     const situacao = p?.situacaoAtual || p?.observacao
 
     const selecionar = (id: string) => {
@@ -76,13 +75,6 @@ export default function PainelCliente({ cliente, processos, processoInicialId, t
                         </button>
                     )}
                 </div>
-                {p?.linkProcesso && (
-                    <div className="mt-4 border-t border-slate-200 pt-4">
-                        <a href={p.linkProcesso} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-medium text-fg-700 hover:underline">
-                            <Search size={18} /> Consultar andamento no {nomeSistema} <ExternalLink size={14} className="opacity-70" />
-                        </a>
-                    </div>
-                )}
                 {relacionados.length > 0 && (
                     <div className="mt-4 border-t border-slate-200 pt-4 text-sm">
                         <p className="font-medium text-slate-700">Processos relacionados:</p>
@@ -106,6 +98,7 @@ export default function PainelCliente({ cliente, processos, processoInicialId, t
                                 <Pencil size={16} />
                             </button>
                         </h1>
+                        {cliente.numeroNexus && <p className="mt-0.5 text-xs text-slate-500">Nº Nexus {cliente.numeroNexus}</p>}
                     </div>
                     {/* Órgão no canto, pequeno; a pasta do OneDrive virou cartão ao lado do processo (troca pedida em 14/09). */}
                     {p && (
@@ -183,12 +176,6 @@ export default function PainelCliente({ cliente, processos, processoInicialId, t
 
                         <div className="mt-6">
                             <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                                {p.linkProcesso && (
-                                    <a href={p.linkProcesso} target="_blank" rel="noopener noreferrer"
-                                        className="flex items-center gap-2 rounded-lg bg-fg-700 px-5 py-3 font-semibold text-white shadow hover:bg-fg-800">
-                                        <Eye size={20} /> Ver andamento do processo <ExternalLink size={16} className="opacity-80" />
-                                    </a>
-                                )}
                                 <button onClick={() => setModo({ tipo: 'editarProcesso', id: p.id })}
                                     className="flex items-center gap-2 rounded-lg border border-fg-300 px-4 py-3 text-sm font-medium text-fg-700 hover:border-ouro-500 hover:bg-ouro-100">
                                     <Pencil size={16} /> Editar este processo

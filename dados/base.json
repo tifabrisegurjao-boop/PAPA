@@ -8,27 +8,31 @@
       "nome": "V&V CIA VISTORIA VEICULAR LTDA",
       "tipoPessoa": "PJ",
       "ordem": 0,
-      "numeroNexus": "3182"
+      "numeroNexus": "3182",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-h-b-r-bragante-&-cia-ltda",
       "nome": "H. B. R. BRAGANTE & CIA LTDA",
       "tipoPessoa": "PJ",
       "ordem": 1,
-      "numeroNexus": "6027"
+      "numeroNexus": "6027",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-t-v-velutto-vistoria-veicular-ltda",
       "nome": "T. V. VELUTTO VISTORIA VEICULAR LTDA",
       "tipoPessoa": "PJ",
-      "ordem": 2
+      "ordem": 2,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-anvero",
       "nome": "ANVERO",
       "tipoPessoa": "PJ",
       "ordem": 3,
-      "numeroNexus": "7305"
+      "numeroNexus": "7305",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-pantera-vistoria-e-servicos-ltda",
@@ -36,7 +40,8 @@
       "tipoPessoa": "PJ",
       "ordem": 4,
       "numeroNexus": "4098",
-      "observacao": "Nº 4098 também aparece em: PANTERA VISTORIA E SERRA CLARA PERÍCIA E VISTORIA"
+      "observacao": "Nº 4098 também aparece em: PANTERA VISTORIA E SERRA CLARA PERÍCIA E VISTORIA",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-pantera-vistoria-e-serra-clara-pericia-e-vistoria",
@@ -44,426 +49,494 @@
       "tipoPessoa": "PJ",
       "ordem": 5,
       "numeroNexus": "4098",
-      "observacao": "Nº 4098 também aparece em: PANTERA VISTORIA E SERVIÇOS LTDA"
+      "observacao": "Nº 4098 também aparece em: PANTERA VISTORIA E SERVIÇOS LTDA",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-orion-palmeiral-vistorias-veiculares-ltda-me",
       "nome": "ORION PALMEIRAL VISTORIAS VEICULARES LTDA ME",
       "tipoPessoa": "PJ",
-      "ordem": 6
+      "ordem": 6,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-orion-monteverde-vistoria-veicular",
       "nome": "ORION MONTEVERDE VISTORIA VEICULAR",
       "tipoPessoa": "PJ",
       "ordem": 7,
-      "numeroNexus": "1573"
+      "numeroNexus": "1573",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-alto-cedro-vistoria-veicular-ltda",
       "nome": "ALTO CEDRO VISTORIA VEICULAR LTDA",
       "tipoPessoa": "PJ",
       "ordem": 8,
-      "numeroNexus": "9460"
+      "numeroNexus": "9460",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-mirante-pericia-e-vistoria-veicular-eireli",
       "nome": "MIRANTE PERÍCIA E VISTORIA VEICULAR EIRELI",
       "tipoPessoa": "PJ",
       "ordem": 9,
-      "observacao": "Mais de um nº de cliente na planilha antiga: 2846, 9134 — confirmar qual é o do Nexus"
+      "observacao": "Mais de um nº de cliente na planilha antiga: 2846, 9134 — confirmar qual é o do Nexus",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-bravicol",
       "nome": "BRAVICOL",
       "tipoPessoa": "PJ",
       "ordem": 10,
-      "numeroNexus": "5731"
+      "numeroNexus": "5731",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-valpara-pericia-e-vistoria-veicular-ltda",
       "nome": "VALPARA PERÍCIA E VISTORIA VEICULAR LTDA",
       "tipoPessoa": "PJ",
       "ordem": 11,
-      "numeroNexus": "8219"
+      "numeroNexus": "8219",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-associacao-das-operadoras-de-rondonia",
       "nome": "ASSOCIACAO DAS OPERADORAS DE RONDONIA",
       "tipoPessoa": "PJ",
-      "ordem": 12
+      "ordem": 12,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-tarsis-guedes-bevilaqua",
       "nome": "TARSIS GUEDES BEVILAQUA",
       "tipoPessoa": "PF",
       "ordem": 13,
-      "numeroNexus": "6352"
+      "numeroNexus": "6352",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-trevolandia-vistoria-tecnica-de-veiculos-ltda",
       "nome": "TREVOLANDIA VISTORIA TÉCNICA DE VEÍCULOS LTDA",
       "tipoPessoa": "PJ",
       "ordem": 14,
-      "numeroNexus": "1907"
+      "numeroNexus": "1907",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-metropole-inspecao-veicular-ltda-me-e-nakashima-vistoria-automotiva-ltda",
       "nome": "METROPOLE INSPEÇÃO VEICULAR LTDA-ME E NAKASHIMA VISTORIA AUTOMOTIVA LTDA",
       "tipoPessoa": "PJ",
-      "ordem": 15
+      "ordem": 15,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-aldivan-orestes-fonteles",
       "nome": "ALDIVAN ORESTES FONTELES",
       "tipoPessoa": "PF",
-      "ordem": 16
+      "ordem": 16,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-construtora-voltare-ltda",
       "nome": "CONSTRUTORA VOLTARE LTDA",
       "tipoPessoa": "PJ",
-      "ordem": 17
+      "ordem": 17,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-construtora-geraldo-chiarello",
       "nome": "CONSTRUTORA GERALDO CHIARELLO",
       "tipoPessoa": "PJ",
-      "ordem": 18
+      "ordem": 18,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-tubomax",
       "nome": "TUBOMAX",
       "tipoPessoa": "PJ",
-      "ordem": 19
+      "ordem": 19,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-plt-comercio-e-servicos-empresariais-eireli",
       "nome": "PLT COMÉRCIO E SERVIÇOS EMPRESARIAIS EIRELI",
       "tipoPessoa": "PJ",
-      "ordem": 20
+      "ordem": 20,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-verbena-&-cia-ltda-me",
       "nome": "VERBENA & CIA LTDA - ME",
       "tipoPessoa": "PJ",
-      "ordem": 21
+      "ordem": 21,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-verbena-vistoria-eireli",
       "nome": "VERBENA VISTORIA EIRELI",
       "tipoPessoa": "PJ",
-      "ordem": 22
+      "ordem": 22,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-valplan",
       "nome": "VALPLAN",
       "tipoPessoa": "PJ",
-      "ordem": 23
+      "ordem": 23,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-helvecio-norberto-queiroga-bandeira",
       "nome": "HELVECIO NORBERTO QUEIROGA BANDEIRA",
       "tipoPessoa": "PF",
       "ordem": 24,
-      "numeroNexus": "2460"
+      "numeroNexus": "2460",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-voltrix",
       "nome": "VOLTRIX",
       "tipoPessoa": "PJ",
-      "ordem": 25
+      "ordem": 25,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-axioma",
       "nome": "AXIOMA",
       "tipoPessoa": "PJ",
-      "ordem": 26
+      "ordem": 26,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-leandro-mercadante-pontelli",
       "nome": "LEANDRO MERCADANTE PONTELLI",
       "tipoPessoa": "PF",
-      "ordem": 27
+      "ordem": 27,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-timbauva-pericia-e-vistoria-veicular-ltda",
       "nome": "TIMBAUVA PERÍCIA E VISTORIA VEICULAR LTDA",
       "tipoPessoa": "PJ",
-      "ordem": 28
+      "ordem": 28,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-instituto-arandu",
       "nome": "INSTITUTO ARANDU",
       "tipoPessoa": "PJ",
-      "ordem": 29
+      "ordem": 29,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-edimar-anselmo-de-trindade-ltda",
       "nome": "EDIMAR ANSELMO DE TRINDADE LTDA",
       "tipoPessoa": "PJ",
-      "ordem": 30
+      "ordem": 30,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-l&r-vistoria-veicular-ltda",
       "nome": "L&R VISTORIA VEICULAR LTDA",
       "tipoPessoa": "PJ",
-      "ordem": 31
+      "ordem": 31,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-d-g-dos-bevilaqua-periciais",
       "nome": "D. G. DOS BEVILAQUA PERICIAIS",
       "tipoPessoa": "PJ",
-      "ordem": 32
+      "ordem": 32,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-serravila-vistoria-veicular-eireli",
       "nome": "SERRAVILA VISTORIA VEICULAR EIRELI",
       "tipoPessoa": "PJ",
-      "ordem": 33
+      "ordem": 33,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-osvaldo-de-graca-cavalcante-sobrinho",
       "nome": "OSVALDO DE GRACA CAVALCANTE SOBRINHO",
       "tipoPessoa": "PF",
-      "ordem": 34
+      "ordem": 34,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-neiva-brandao-vasques",
       "nome": "NEIVA BRANDAO VASQUES",
       "tipoPessoa": "PF",
-      "ordem": 35
+      "ordem": 35,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-lar-do-idoso-osmar-ferraz",
       "nome": "LAR DO IDOSO OSMAR FERRAZ",
       "tipoPessoa": "PJ",
-      "ordem": 36
+      "ordem": 36,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-otilia-seixas-reboucas-pacheco",
       "nome": "OTILIA SEIXAS REBOUCAS PACHECO",
       "tipoPessoa": "PF",
-      "ordem": 37
+      "ordem": 37,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-denilson-tavora-da-nogueira",
       "nome": "DENILSON TAVORA DA NOGUEIRA",
       "tipoPessoa": "PF",
       "ordem": 38,
-      "numeroNexus": "6172"
+      "numeroNexus": "6172",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-herbert-romulo-saldanha-braganca",
       "nome": "HERBERT ROMULO SALDANHA BRAGANCA",
       "tipoPessoa": "PF",
       "ordem": 39,
-      "numeroNexus": "6408"
+      "numeroNexus": "6408",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-araguaia-construtora",
       "nome": "ARAGUAIA CONSTRUTORA",
       "tipoPessoa": "PJ",
-      "ordem": 40
+      "ordem": 40,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-antonia-conceicao",
       "nome": "ANTONIA CONCEICAO",
       "tipoPessoa": "PF",
-      "ordem": 41
+      "ordem": 41,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-antonia-ivone-quevedo-dos-bevilaqua",
       "nome": "ANTONIA IVONE QUEVEDO DOS BEVILAQUA",
       "tipoPessoa": "PF",
-      "ordem": 42
+      "ordem": 42,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-torriani-pericia-e-vistoria-veicular-ltda-me",
       "nome": "TORRIANI PERÍCIA E VISTORIA VEICULAR LTDA ME",
       "tipoPessoa": "PJ",
-      "ordem": 43
+      "ordem": 43,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-primaz-vistoria-ltda",
       "nome": "PRIMAZ VISTORIA LTDA",
       "tipoPessoa": "PJ",
-      "ordem": 44
+      "ordem": 44,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-gilvan-marinho-campelo-esteves-de-bittencourt",
       "nome": "GILVAN MARINHO CAMPELO ESTEVES DE BITTENCOURT",
       "tipoPessoa": "PF",
-      "ordem": 45
+      "ordem": 45,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-kv-industria",
       "nome": "KV INDÚSTRIA",
       "tipoPessoa": "PJ",
-      "ordem": 46
+      "ordem": 46,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-sirlei-valadares-campelo",
       "nome": "SIRLEI VALADARES CAMPELO",
       "tipoPessoa": "PF",
       "ordem": 47,
-      "numeroNexus": "5061"
+      "numeroNexus": "5061",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-trameo",
       "nome": "TRAMEO",
       "tipoPessoa": "PJ",
-      "ordem": 48
+      "ordem": 48,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-monte-verde-vistoria-veicular-ltda",
       "nome": "MONTE VERDE VISTORIA VEICULAR LTDA",
       "tipoPessoa": "PJ",
-      "ordem": 49
+      "ordem": 49,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-elcio-do-socorro-de-bem-barcelos",
       "nome": "ELCIO DO SOCORRO DE BEM BARCELOS",
       "tipoPessoa": "PF",
-      "ordem": 50
+      "ordem": 50,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-debora-peixoto-cordeiro",
       "nome": "DEBORA PEIXOTO CORDEIRO",
       "tipoPessoa": "PF",
-      "ordem": 51
+      "ordem": 51,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-boreal-pericias-de-veiculos-eireli",
       "nome": "BOREAL PERÍCIAS DE VEÍCULOS EIRELI",
       "tipoPessoa": "PJ",
-      "ordem": 52
+      "ordem": 52,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-crista-pro-importadora-de-multi-variedades-e-suprimentos-ltda",
       "nome": "CRISTA PRÓ IMPORTADORA DE MULTI VARIEDADES E SUPRIMENTOS LTDA",
       "tipoPessoa": "PJ",
       "ordem": 53,
-      "numeroNexus": "3572"
+      "numeroNexus": "3572",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-marbel-construcoes-depen",
       "nome": "MARBEL CONSTRUÇÕES - DEPEN",
       "tipoPessoa": "PJ",
-      "ordem": 54
+      "ordem": 54,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-santa-brigida-pericia-e-vistoria-veicular-eireli-me",
       "nome": "SANTA BRIGIDA PERÍCIA E VISTORIA VEICULAR EIRELI ME",
       "tipoPessoa": "PJ",
-      "ordem": 55
+      "ordem": 55,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-proprietario-do-veiculo-placa-pwq4b71-(nao-identificado)",
       "nome": "PROPRIETÁRIO DO VEÍCULO PLACA PWQ4B71 (NÃO IDENTIFICADO)",
       "tipoPessoa": "PF",
-      "ordem": 56
+      "ordem": 56,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-revial",
       "nome": "REVIAL",
       "tipoPessoa": "PJ",
-      "ordem": 57
+      "ordem": 57,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-n-f-vistoria-e-pericia-veicular-ltda",
       "nome": "N. F. VISTORIA E PERÍCIA VEICULAR LTDA",
       "tipoPessoa": "PJ",
-      "ordem": 58
+      "ordem": 58,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-tx-cursos-e-treinamentos-ltda",
       "nome": "TX CURSOS E TREINAMENTOS LTDA",
       "tipoPessoa": "PJ",
       "ordem": 59,
-      "numeroNexus": "1347"
+      "numeroNexus": "1347",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-arnaldo-emilio-nogueira-vasques",
       "nome": "ARNALDO EMILIO NOGUEIRA VASQUES",
       "tipoPessoa": "PF",
       "ordem": 60,
-      "numeroNexus": "9285"
+      "numeroNexus": "9285",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-wilker-dal-bertolini",
       "nome": "WILKER DAL BERTOLINI",
       "tipoPessoa": "PF",
       "ordem": 61,
-      "numeroNexus": "7519"
+      "numeroNexus": "7519",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-nqp-produtoras-ltda-me",
       "nome": "NQP PRODUTORAS LTDA - ME",
       "tipoPessoa": "PJ",
       "ordem": 62,
-      "numeroNexus": "8034"
+      "numeroNexus": "8034",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-heraldo-de-quevedo-galvao",
       "nome": "HERALDO DE QUEVEDO GALVAO",
       "tipoPessoa": "PF",
       "ordem": 63,
-      "numeroNexus": "4681"
+      "numeroNexus": "4681",
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-supero-assessoria-e-servicos-administrativos-ltda-me",
       "nome": "SUPERO ASSESSORIA E SERVIÇOS ADMINISTRATIVOS LTDA - ME",
       "tipoPessoa": "PJ",
-      "ordem": 64
+      "ordem": 64,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-balduino-&-mesquita-ltda",
       "nome": "BALDUINO & MESQUITA LTDA",
       "tipoPessoa": "PJ",
-      "ordem": 65
+      "ordem": 65,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-serra-clara-pericia-e-vistoria-de-veiculos-ltda",
       "nome": "SERRA CLARA PERÍCIA E VISTORIA DE VEÍCULOS LTDA",
       "tipoPessoa": "PJ",
-      "ordem": 66
+      "ordem": 66,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-rosilene-cordeiro-de-alencar-ltda",
       "nome": "ROSILENE CORDEIRO DE ALENCAR LTDA",
       "tipoPessoa": "PJ",
-      "ordem": 67
+      "ordem": 67,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-itajura-pericias-e-vistorias-veicular-ltda",
       "nome": "ITAJURA PERÍCIAS E VISTORIAS VEICULAR LTDA",
       "tipoPessoa": "PJ",
-      "ordem": 68
+      "ordem": 68,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-romulo-alencar-da-nogueira-me",
       "nome": "ROMULO ALENCAR DA NOGUEIRA ME",
       "tipoPessoa": "PJ",
-      "ordem": 69
+      "ordem": 69,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-altamonte-pericia-e-vistoria-veicular",
       "nome": "ALTAMONTE PERÍCIA E VISTORIA VEICULAR",
       "tipoPessoa": "PJ",
-      "ordem": 70
+      "ordem": 70,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-p-batalha-pericia-e-vistoria-veicular-ltda",
       "nome": "P BATALHA PERÍCIA E VISTORIA VEICULAR LTDA",
       "tipoPessoa": "PJ",
-      "ordem": 71
+      "ordem": 71,
+      "linkPasta": "https://onedrive.live.com/"
     },
     {
       "id": "c-orion-pericia-e-vistoria-veicular-franquias-ltda",
       "nome": "ORION PERÍCIA E VISTORIA VEICULAR FRANQUIAS LTDA",
       "tipoPessoa": "PJ",
-      "ordem": 72
+      "ordem": 72,
+      "linkPasta": "https://onedrive.live.com/"
     }
   ],
   "processos": [
