@@ -109,8 +109,11 @@ function Ramo({ no, principal, selecionadoId, onSelecionar, onEditar, hoje, reco
         ? ativo ? 'fill-ouro-300 text-ouro-700' : 'fill-ouro-500 text-ouro-500'
         : ativo ? 'fill-sky-200 text-sky-700' : 'fill-sky-600 text-sky-600'
     const corNumero = expirado ? 'text-rose-700' : principal ? 'text-fg-700' : 'text-slate-800'
+    const corda = principal ? '' :
+        "relative before:absolute before:-left-4 before:top-0 before:h-full before:border-l before:border-dotted before:border-slate-400 before:content-[''] last:before:h-[1.15rem] " +
+        "after:absolute after:-left-4 after:top-[1.15rem] after:w-3 after:border-t after:border-dotted after:border-slate-400 after:content-['']"
     return (
-        <li>
+        <li className={corda}>
             <div className={`group flex items-start gap-1 rounded-md pr-1 ${ativo ? 'bg-fg-50 ring-1 ring-ouro-500/70' : 'hover:bg-slate-100'}`}>
                 {filhos.length > 0 ? (
                     <button onClick={() => alternar(processo.id)} aria-label={recolhido ? `Expandir ${processo.numero}` : `Recolher ${processo.numero}`}
@@ -147,7 +150,9 @@ function Ramo({ no, principal, selecionadoId, onSelecionar, onEditar, hoje, reco
                 )}
             </div>
             {filhos.length > 0 && !recolhido && (
-                <ul className="ml-4 space-y-1 border-l-2 border-sky-200 pl-2">
+                // Linhas pontilhadas como na árvore do SEI: cada filho desenha o trecho vertical (::before) e o
+                // ramal horizontal até a sua pasta (::after); o último filho encerra a vertical na altura do ramal.
+                <ul className="ml-[1.35rem] space-y-1 pl-4">
                     {filhos.map(filho => (
                         <Ramo key={filho.processo.id} no={filho} selecionadoId={selecionadoId} onSelecionar={onSelecionar} onEditar={onEditar}
                             hoje={hoje} recolhidos={recolhidos} alternar={alternar} />

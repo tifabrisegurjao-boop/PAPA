@@ -119,11 +119,6 @@ export default function App() {
         <div className="flex min-h-screen flex-col bg-fg-50 text-slate-800">
             <Cabecalho subtitulo={cliente && `Cliente: ${cliente.nome}`} termo={termo} onPesquisar={pesquisar} email={sessao.email}
                 semLogin={SEM_LOGIN ? (DEMO ? 'demonstração' : 'sem login') : undefined} onSair={autenticacao?.sair} />
-            {!repositorio.persistente && base && (
-                <p className="bg-amber-100 px-4 py-1.5 text-center text-xs font-medium text-amber-900">
-                    Versão de demonstração: o que você cadastrar ou editar fica só nesta aba e some ao recarregar.
-                </p>
-            )}
             <main className="mx-auto w-full max-w-7xl flex-1 p-4 md:p-8">{conteudo}</main>
             {base && (
                 <footer className="px-4 pb-4 text-center text-xs text-slate-500">

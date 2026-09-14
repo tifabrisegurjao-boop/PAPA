@@ -38,7 +38,7 @@ export default function Cabecalho({ subtitulo, termo, onPesquisar, email, semLog
                         <User size={22} />
                     </span>
                     {semLogin ? (
-                        <span className="rounded-md bg-amber-300/90 px-2 py-1 text-xs font-semibold text-amber-900" title="Versão aberta sem login — base fictícia">
+                        <span className="rounded-md bg-amber-300/90 px-2 py-1 text-xs font-semibold text-amber-900" title="Versão aberta sem login, com base fictícia: o que você cadastrar ou editar fica só nesta aba e some ao recarregar">
                             {semLogin}
                         </span>
                     ) : (
