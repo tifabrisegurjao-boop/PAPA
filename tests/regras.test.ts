@@ -5,6 +5,7 @@ import { montarArvore } from '../src/lib/arvore.ts'
 import { buscarProcessos, filtrarClientes, normalizar } from '../src/lib/busca.ts'
 import { diasAte, formatarDataHora } from '../src/lib/formatacao.ts'
 import { erroNomeCliente, erroNumero } from '../src/lib/validacao.ts'
+import { paginar } from '../src/lib/paginacao.ts'
 import type { Cliente, Processo } from '../src/tipos.ts'
 
 const proc = (id: string, processoPaiId?: string, extra: Partial<Processo> = {}): Processo =>
@@ -117,4 +118,17 @@ test('validação: nome de cliente único sem acento nem caixa, exceto o própri
     assert.match(erroNomeCliente('JOSE DA SILVA', undefined, [c1, c2])!, /Já existe/)
     assert.equal(erroNomeCliente('José da Silva', c1, [c1, c2]), undefined)
     assert.equal(erroNomeCliente('Beta Ltda', undefined, [c1, c2]), undefined)
+})
+
+test('paginação: 15 por página, página fora do intervalo cai no limite', () => {
+    const lista = Array.from({ length: 54 }, (_, i) => i + 1)
+    const p1 = paginar(lista, 1)
+    assert.deepEqual([p1.itens.length, p1.inicio, p1.fim, p1.totalPaginas], [15, 1, 15, 4])
+    const p4 = paginar(lista, 4)
+    assert.deepEqual([p4.itens, p4.inicio, p4.fim], [[46, 47, 48, 49, 50, 51, 52, 53, 54], 46, 54])
+    assert.equal(paginar(lista, 9).pagina, 4, 'acima do total cai na última (busca encolheu a lista)')
+    assert.equal(paginar(lista, 0).pagina, 1)
+    const vazia = paginar([], 3)
+    assert.deepEqual([vazia.pagina, vazia.totalPaginas, vazia.inicio, vazia.fim, vazia.itens.length], [1, 1, 0, 0, 0])
+    assert.equal(paginar(Array.from({ length: 15 }), 1).totalPaginas, 1, 'exatamente 15 não pagina')
 })

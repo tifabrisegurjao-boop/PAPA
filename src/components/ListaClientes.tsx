@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { AlertTriangle, FileText, Lock, UserPlus } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, FileText, Lock, UserPlus } from 'lucide-react'
 import { semAcesso } from '../lib/acesso.ts'
 import { buscarProcessos, filtrarClientes } from '../lib/busca.ts'
+import { paginar } from '../lib/paginacao.ts'
 import type { Base, Cliente, Processo, TipoPessoa } from '../tipos.ts'
 import FormularioCliente from './FormularioCliente.tsx'
 
@@ -63,12 +64,12 @@ export default function ListaClientes({ base, termo, onSalvarCliente }: Props) {
             {encontrados.length > 0 && <ProcessosEncontrados processos={encontrados} nomeDe={nomeDe} hoje={hoje} />}
 
             <div className="grid gap-6 md:grid-cols-2">
-                <Coluna titulo="Pessoa física" clientes={doTipo(visiveis, 'PF')} resumo={resumo} />
-                <Coluna titulo="Pessoa jurídica" clientes={doTipo(visiveis, 'PJ')} resumo={resumo} />
+                <Coluna chave="pf" termo={termo} titulo="Pessoa física" clientes={doTipo(visiveis, 'PF')} resumo={resumo} />
+                <Coluna chave="pj" termo={termo} titulo="Pessoa jurídica" clientes={doTipo(visiveis, 'PJ')} resumo={resumo} />
             </div>
             {semTipo.length > 0 && (
                 <div className="mt-6">
-                    <Coluna titulo="Sem classificação (preencher PF/PJ)" clientes={ordenar(semTipo)} resumo={resumo} alerta />
+                    <Coluna chave="sem-tipo" termo={termo} titulo="Sem classificação (preencher PF/PJ)" clientes={ordenar(semTipo)} resumo={resumo} alerta />
                 </div>
             )}
             {termo && visiveis.length === 0 && encontrados.length === 0 && (
@@ -129,13 +130,39 @@ function ProcessosEncontrados({ processos, nomeDe, hoje }: { processos: Processo
 }
 
 interface ColunaProps {
+    /** Identifica a coluna para lembrar a página ao abrir um cliente e voltar. */
+    chave: string
+    /** Busca atual: mudou a busca, a coluna volta para a página 1. */
+    termo: string
     titulo: string
     clientes: Cliente[]
     resumo: Map<string, Resumo>
     alerta?: boolean
 }
 
-function Coluna({ titulo, clientes, resumo, alerta }: ColunaProps) {
+// Página lembrada por aba do navegador: abrir um cliente e voltar mantém a página; busca nova começa da 1.
+function lerPagina(chave: string, termo: string): number {
+    try {
+        const salvo = JSON.parse(sessionStorage.getItem(`papa:pagina:${chave}`) ?? 'null') as { termo: string; pagina: number } | null
+        return salvo && salvo.termo === termo ? salvo.pagina : 1
+    } catch {
+        return 1
+    }
+}
+
+function Coluna({ chave, termo, titulo, clientes, resumo, alerta }: ColunaProps) {
+    const [pedida, setPedida] = useState(() => lerPagina(chave, termo))
+    const [termoDaPagina, setTermoDaPagina] = useState(termo)
+    // Busca mudou: volta para a página 1 (ajuste de estado durante o render, sem efeito extra).
+    if (termoDaPagina !== termo) {
+        setTermoDaPagina(termo)
+        setPedida(1)
+    }
+    const { itens, pagina, totalPaginas, inicio, fim } = paginar(clientes, termoDaPagina === termo ? pedida : 1)
+    const irPara = (n: number) => {
+        setPedida(n)
+        try { sessionStorage.setItem(`papa:pagina:${chave}`, JSON.stringify({ termo, pagina: n })) } catch { /* sem armazenamento: só não lembra */ }
+    }
     return (
         <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <header className={`flex items-center justify-between border-b-2 px-5 py-3 ${alerta ? 'border-amber-400 bg-amber-100 text-amber-900' : 'border-ouro-500 bg-fg-700 text-white'}`}>
@@ -148,7 +175,7 @@ function Coluna({ titulo, clientes, resumo, alerta }: ColunaProps) {
                 <p className="px-5 py-4 text-sm text-slate-500">Nenhum cliente.</p>
             ) : (
                 <ul className="divide-y divide-slate-100">
-                    {clientes.map(c => {
+                    {itens.map(c => {
                         const r = resumo.get(c.id) ?? { total: 0, expirados: 0 }
                         const vermelho = r.expirados > 0
                         return (
@@ -166,6 +193,21 @@ function Coluna({ titulo, clientes, resumo, alerta }: ColunaProps) {
                         )
                     })}
                 </ul>
+            )}
+            {totalPaginas > 1 && (
+                <nav aria-label={`Páginas de ${titulo}`} className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-5 py-2 text-sm">
+                    <button onClick={() => irPara(pagina - 1)} disabled={pagina <= 1}
+                        className="flex items-center gap-1 rounded-md px-2 py-1 font-medium text-fg-700 hover:bg-ouro-100 focus:outline-none focus:ring-2 focus:ring-ouro-500/70 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent">
+                        <ChevronLeft size={16} /> Anterior
+                    </button>
+                    <span className="text-center text-xs tabular-nums text-slate-600">
+                        {inicio}–{fim} de {clientes.length} · página {pagina} de {totalPaginas}
+                    </span>
+                    <button onClick={() => irPara(pagina + 1)} disabled={pagina >= totalPaginas}
+                        className="flex items-center gap-1 rounded-md px-2 py-1 font-medium text-fg-700 hover:bg-ouro-100 focus:outline-none focus:ring-2 focus:ring-ouro-500/70 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent">
+                        Próxima <ChevronRight size={16} />
+                    </button>
+                </nav>
             )}
         </section>
     )
