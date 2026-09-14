@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { CalendarDays, Clock, ExternalLink, Eye, FileText, Folder, History, Landmark, Pencil, Plus, Scale, Search, Tag } from 'lucide-react'
+import { CalendarDays, Clock, ExternalLink, Eye, FileText, Folder, History, Landmark, Pencil, Plus, Search, Tag } from 'lucide-react'
 import { estadoAcesso } from '../lib/acesso.ts'
 import { montarArvore } from '../lib/arvore.ts'
 import { formatarDataHora } from '../lib/formatacao.ts'
@@ -76,17 +76,11 @@ export default function PainelCliente({ cliente, processos, processoInicialId, t
                         </button>
                     )}
                 </div>
-                {p && (
+                {p?.linkProcesso && (
                     <div className="mt-4 border-t border-slate-200 pt-4">
-                        {p.linkProcesso ? (
-                            <a href={p.linkProcesso} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-medium text-fg-700 hover:underline">
-                                <Search size={18} /> Consultar andamento no {nomeSistema} <ExternalLink size={14} className="opacity-70" />
-                            </a>
-                        ) : (
-                            <span className="flex items-center gap-2 text-sm text-slate-500" title="Cadastre o link do processo (lápis ao lado do número)">
-                                <Search size={18} /> Consultar andamento (sem link)
-                            </span>
-                        )}
+                        <a href={p.linkProcesso} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-medium text-fg-700 hover:underline">
+                            <Search size={18} /> Consultar andamento no {nomeSistema} <ExternalLink size={14} className="opacity-70" />
+                        </a>
                     </div>
                 )}
                 {relacionados.length > 0 && (
@@ -112,7 +106,6 @@ export default function PainelCliente({ cliente, processos, processoInicialId, t
                                 <Pencil size={16} />
                             </button>
                         </h1>
-                        {cliente.numeroNexus && <p className="mt-0.5 text-xs text-slate-500">Nº Nexus {cliente.numeroNexus}</p>}
                     </div>
                     {/* Órgão no canto, pequeno; a pasta do OneDrive virou cartão ao lado do processo (troca pedida em 14/09). */}
                     {p && (
@@ -153,9 +146,10 @@ export default function PainelCliente({ cliente, processos, processoInicialId, t
                             <CartaoInfo icone={FileText} cor="processo" rotulo={p.sistema ?? 'Processo'} valor={p.numero}
                                 detalhe={descreverAcesso(p, acesso)} alerta={expirado} href={p.linkProcesso} titulo="Abrir o processo no sistema de origem (nova aba)" className="md:col-span-2" />
                             <CartaoInfo icone={Folder} cor="pasta" rotulo="Pasta no OneDrive" valor={cliente.linkPasta ? 'Processos do cliente' : 'Sem link'}
-                                detalhe={cliente.linkPasta ? 'Documentos do cliente no OneDrive' : 'Cadastre o link (lápis ao lado do nome)'} href={cliente.linkPasta} titulo="Abrir a pasta do cliente no OneDrive (nova aba)" />
-                            <CartaoInfo icone={Tag} cor="tipo" rotulo="Tipo" valor={p.tipo} />
-                            <CartaoInfo icone={Scale} cor="natureza" rotulo="Natureza" valor={p.natureza} />
+                                detalhe={[cliente.numeroNexus ? `Nº Nexus ${cliente.numeroNexus}` : 'Sem nº Nexus', cliente.linkPasta ? 'Documentos do cliente' : 'Cadastre o link (lápis ao lado do nome)'].join(' · ')}
+                                href={cliente.linkPasta} titulo="Abrir a pasta do cliente no OneDrive (nova aba)" />
+                            {/* Natureza saiu do painel a pedido (continua no formulário e na planilha). */}
+                            <CartaoInfo icone={Tag} cor="tipo" rotulo="Tipo" valor={p.tipo} className="md:col-span-2" />
                             <CartaoInfo icone={Clock} cor="status" rotulo="Status" valor={p.status} />
                         </div>
 
@@ -189,16 +183,11 @@ export default function PainelCliente({ cliente, processos, processoInicialId, t
 
                         <div className="mt-6">
                             <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                                {p.linkProcesso ? (
+                                {p.linkProcesso && (
                                     <a href={p.linkProcesso} target="_blank" rel="noopener noreferrer"
                                         className="flex items-center gap-2 rounded-lg bg-fg-700 px-5 py-3 font-semibold text-white shadow hover:bg-fg-800">
                                         <Eye size={20} /> Ver andamento do processo <ExternalLink size={16} className="opacity-80" />
                                     </a>
-                                ) : (
-                                    <span title="Cadastre o link do processo (lápis ao lado do número)"
-                                        className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-dashed border-slate-300 px-5 py-3 font-medium text-slate-500">
-                                        <Eye size={20} /> Ver andamento do processo (sem link)
-                                    </span>
                                 )}
                                 <button onClick={() => setModo({ tipo: 'editarProcesso', id: p.id })}
                                     className="flex items-center gap-2 rounded-lg border border-fg-300 px-4 py-3 text-sm font-medium text-fg-700 hover:border-ouro-500 hover:bg-ouro-100">
