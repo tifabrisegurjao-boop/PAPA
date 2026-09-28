@@ -15,7 +15,7 @@ const porId = (plano: { escritas: { colecao: string; id: string }[] }, colecao: 
 test('importação: 1ª carga em banco vazio grava tudo como novo, com o pai apontando para o id certo', () => {
     const b = base([cli('c-ana', 'Ana')], [proc('p-1', 'c-ana', '0001'), proc('p-2', 'c-ana', '0002', { processoPaiId: 'p-1', vinculo: 'derivado' })])
     const plano = planejarImportacao(b)
-    assert.deepEqual(plano.resumo, { novos: 3, atualizados: 0, inalterados: 0, forcados: 0, pulados: 0 })
+    assert.deepEqual(plano.resumo, { novos: 3, atualizados: 0, reordenados: 0, inalterados: 0, forcados: 0, pulados: 0 })
     assert.equal(plano.escritas.every(e => e.motivo === 'novo' && e.anterior === null), true)
     assert.equal(porId(plano, 'papaProcessos', 'p-2')!.dados.processoPaiId, 'p-1')
     assert.equal(plano.avisos.length, 0)
@@ -27,6 +27,20 @@ test('importação: 2ª carga da mesma planilha não regrava nada (sem versão n
     const plano = planejarImportacao(b, banco)
     assert.equal(plano.escritas.length, 0)
     assert.equal(plano.resumo.inalterados, 2)
+})
+
+test('importação: linha inserida acima só muda a posição — atualização leve, sem historico, e não vira "pulado" para quem editou na tela', () => {
+    const banco = {
+        clientesNoBanco: [importado(cli('c-a', 'A', { ordem: 0 })), editado(cli('c-b', 'B', { ordem: 1, observacao: 'corrigida na tela' })), importado(cli('c-c', 'C', { ordem: 2 }))],
+    }
+    const b = base([cli('c-novo', 'Novo', { ordem: 0 }), cli('c-a', 'A', { ordem: 1 }), cli('c-b', 'B', { ordem: 2, observacao: 'corrigida na tela' }), cli('c-c', 'C', { ordem: 3 })], [])
+    const plano = planejarImportacao(b, banco)
+    assert.deepEqual(plano.resumo, { novos: 1, atualizados: 0, reordenados: 2, inalterados: 1, forcados: 0, pulados: 0 })
+    const a = porId(plano, 'papaClientes', 'c-a')!
+    assert.equal(a.motivo, 'ordem')
+    assert.deepEqual(a.dados, { nome: 'A', tipoPessoa: 'PF', ordem: 1 })
+    assert.equal(porId(plano, 'papaClientes', 'c-b'), undefined, 'editado na tela não é regravado só por causa da posição')
+    assert.equal(plano.pulados.length, 0)
 })
 
 test('importação: célula apagada na planilha apaga o campo no banco (a linha é o registro)', () => {
@@ -82,6 +96,48 @@ test('importação: nome de cliente corrigido sem nº do Nexus vira cliente novo
     assert.equal(plano.escritas.filter(e => e.colecao === 'papaProcessos').length, 2)
     assert.match(plano.avisos.join('\n'), /provável renomeação: "Ana" \(banco\) → "Ana Paula" \(planilha\)/)
     assert.match(plano.avisos.join('\n'), /clientes novos nesta reimportação.*Ana Paula/)
+})
+
+test('importação: renomeação com um processo editado na tela avisa que ele fica no cadastro antigo', () => {
+    const noBanco = { clientesNoBanco: [importado(cli('c-ana', 'Ana'))], processosNoBanco: [importado(proc('p-1', 'c-ana', '0001')), editado(proc('p-2', 'c-ana', '0002', { status: 'Da tela' }))] }
+    const b = base([cli('c-ana-paula', 'Ana Paula')], [proc('p-1', 'c-ana-paula', '0001'), proc('p-2', 'c-ana-paula', '0002', { status: 'Da planilha' })])
+    const plano = planejarImportacao(b, noBanco)
+    assert.deepEqual(plano.pulados.map(p => p.id), ['p-2'])
+    assert.match(plano.avisos.join('\n'), /provável renomeação: "Ana" \(banco\) → "Ana Paula" \(planilha\)\. O\(s\) processo\(s\) 0002 fica\(m\) no cadastro antigo/)
+    assert.doesNotMatch(plano.avisos.join('\n'), /sem processos/)
+})
+
+test('importação: um cliente de teste cadastrado pela tela não faz a 1ª carga real parecer reimportação', () => {
+    const noBanco = { clientesNoBanco: [editado(cli('c-teste', 'Teste da ativação'))] }
+    const b = base([cli('c-ana', 'Ana'), cli('c-beto', 'Beto')], [])
+    const plano = planejarImportacao(b, noBanco)
+    assert.equal(plano.novosClientes.length, 0)
+    assert.equal(plano.avisos.some(a => a.includes('clientes novos')), false)
+})
+
+test('importação: cliente renomeado na TELA e ainda com o nome antigo na planilha é pulado sem aviso de "passa a se chamar"', () => {
+    const noBanco = { clientesNoBanco: [editado(cli('c-ana', 'Ana Paula Souza'))] }
+    const b = base([cli('c-ana', 'Ana')], [])
+    const plano = planejarImportacao(b, noBanco)
+    assert.deepEqual(plano.pulados.map(p => p.id), ['c-ana'])
+    assert.equal(plano.avisos.some(a => a.includes('passa a se chamar')), false)
+})
+
+test('importação: duas linhas que disputam o mesmo cliente do banco geram aviso de ambiguidade; nº do Nexus apagado é avisado', () => {
+    const noBanco = { clientesNoBanco: [importado(cli('c-ana', 'Ana', { numeroNexus: '4821' }))] }
+    const b = base([cli('c-ana-comercio', 'Ana Comércio', { numeroNexus: '4821' }), cli('c-ana', 'Ana')], [])
+    const plano = planejarImportacao(b, noBanco)
+    assert.match(plano.avisos.join('\n'), /cliente "Ana" também corresponde a "Ana" do banco, que já foi tomado pela linha "Ana Comércio"/)
+    const semNexus = planejarImportacao(base([cli('c-ana', 'Ana')], []), noBanco)
+    assert.match(semNexus.avisos.join('\n'), /perde o nº do Nexus 4821/)
+})
+
+test('importação: nº já usado por outra linha do MESMO cliente é avisado como duplicata provável, não como "outro cliente"', () => {
+    const banco = { clientesNoBanco: [importado(cli('c-a', 'A'))], processosNoBanco: [editado(proc('p-0001', 'c-a', '0002', { status: 'nº corrigido na tela' }))] }
+    const b = base([cli('c-a', 'A')], [proc('p-0001', 'c-a', '0001'), proc('p-0002', 'c-a', '0002')])
+    const plano = planejarImportacao(b, banco)
+    assert.match(plano.avisos.join('\n'), /processo 0002: o registro deste cliente com esse nº \(p-0001\) já foi usado por outra linha/)
+    assert.doesNotMatch(plano.avisos.join('\n'), /outro cliente/)
 })
 
 test('importação: mesmo nº para OUTRO cliente vira registro separado, sem sobrescrever o do primeiro', () => {
@@ -145,8 +201,9 @@ test('importação: conferirBase barra base de demonstração e arquivo que não
 test('validação: o que as regras recusariam é apontado antes de gravar', () => {
     assert.deepEqual(validarRegistro('papaClientes', { nome: 'Ana', tipoPessoa: null, ordem: 3 }), [])
     assert.match(validarRegistro('papaClientes', { nome: 'Ana', tipoPessoa: 'X' })[0], /tipoPessoa/)
-    assert.match(validarRegistro('papaClientes', { nome: 'Ana', numeroNexus: null })[0], /numeroNexus não é texto \(null\)/)
-    assert.match(validarRegistro('papaClientes', { nome: 'Ana', extra: 1 })[0], /"extra" não existe nas regras/)
+    assert.match(validarRegistro('papaClientes', { nome: 'Ana' })[0], /tipoPessoa ausente/)
+    assert.match(validarRegistro('papaClientes', { nome: 'Ana', tipoPessoa: null, numeroNexus: null })[0], /numeroNexus não é texto \(null\)/)
+    assert.match(validarRegistro('papaClientes', { nome: 'Ana', tipoPessoa: null, extra: 1 })[0], /"extra" não existe nas regras/)
     assert.match(validarRegistro('papaProcessos', { clienteId: 'c', numero: 'n', status: 'x'.repeat(61) })[0], /status tem 61 caracteres \(máximo 60\)/)
     assert.match(validarRegistro('papaProcessos', { clienteId: 'c', numero: 'n', vinculo: 'filho' })[0], /vinculo/)
     assert.match(validarRegistro('papaProcessos', { clienteId: 'c', numero: 'n', acesso: { forma: null } })[0], /acesso\.forma é null/)

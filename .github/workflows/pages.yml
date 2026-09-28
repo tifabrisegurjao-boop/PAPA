@@ -29,8 +29,10 @@ jobs:
     steps:
       - name: O branch demo precisa estar no GitHub
         run: |
-          git ls-remote --exit-code --heads "https://github.com/${{ github.repository }}.git" demo >/dev/null \
-            || { echo "::error::O branch 'demo' (conteúdo da demonstração) não está no GitHub. Rode: git push origin demo"; exit 1; }
+          # Com o token do job a consulta funciona também se o repositório virar privado.
+          git ls-remote --exit-code --heads "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" demo >/dev/null; codigo=$?
+          if [ "$codigo" = 2 ]; then echo "::error::O branch 'demo' (conteúdo da demonstração) não está no GitHub. Rode: git push origin demo"; exit 1; fi
+          if [ "$codigo" != 0 ]; then echo "::error::Não consegui consultar os branches do GitHub (código $codigo)."; exit 1; fi
       - uses: actions/checkout@v4
         with:
           ref: demo # conteúdo congelado da demonstração (ver cabeçalho)

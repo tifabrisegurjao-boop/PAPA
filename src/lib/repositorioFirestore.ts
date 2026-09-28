@@ -28,7 +28,8 @@ function explicarPermissao(acao: 'ler' | 'gravar'): string {
 const traduzir = (e: unknown, acao: 'ler' | 'gravar'): Error => {
     const codigo = e instanceof FirebaseError || (typeof e === 'object' && e && 'code' in e) ? String((e as { code?: string }).code) : ''
     if (codigo === 'permission-denied') return new Error(explicarPermissao(acao))
-    if (codigo === 'unavailable') return new Error(SEM_CONEXAO)
+    // Na gravação, "recarregue" apagaria o formulário: o que foi digitado continua lá, basta tentar de novo.
+    if (codigo === 'unavailable') return new Error(acao === 'gravar' ? 'Sem conexão com o banco no momento. Confira a internet e clique em Salvar de novo — o que você digitou continua no formulário.' : SEM_CONEXAO)
     const mensagem = e instanceof Error ? e.message : String(e)
     return new Error(acao === 'ler' ? `Falha ao ler o banco: ${mensagem}` : `O banco recusou a gravação${codigo ? ` (${codigo})` : ''}: ${mensagem}`)
 }
@@ -45,14 +46,17 @@ export function repositorioFirestore(): Repositorio {
             }
             const receber = (snap: QuerySnapshot<DocumentData>, guardar: () => void) => {
                 // Sem alcançar o servidor, o SDK entrega o cache — vazio numa aba nova — como se fosse a base. Avisar em vez de
-                // mostrar uma lista vazia; quando a conexão volta, o próximo snapshot (do servidor) substitui o aviso pela base.
+                // mostrar uma lista vazia; quando a conexão volta, o snapshot do servidor substitui o aviso pela base.
                 if (snap.metadata.fromCache && snap.empty) { aoFalhar(new Error(SEM_CONEXAO)); return }
                 guardar()
                 entregar()
             }
             const falhar = (e: Error) => aoFalhar(traduzir(e, 'ler'))
-            const pararClientes = onSnapshot(collection(db, COLECAO_CLIENTES), snap => receber(snap, () => { clientes = docs<Cliente>(snap) }), falhar)
-            const pararProcessos = onSnapshot(collection(db, COLECAO_PROCESSOS), snap => receber(snap, () => { processos = docs<Processo>(snap) }), falhar)
+            // includeMetadataChanges: uma coleção VAZIA que sai do cache para o servidor não muda de conteúdo, e sem isso o SDK não
+            // avisaria — o "sem conexão" ficaria preso na tela mesmo depois de a rede voltar (primeira ativação, banco ainda vazio).
+            const opcoes = { includeMetadataChanges: true }
+            const pararClientes = onSnapshot(collection(db, COLECAO_CLIENTES), opcoes, snap => receber(snap, () => { clientes = docs<Cliente>(snap) }), falhar)
+            const pararProcessos = onSnapshot(collection(db, COLECAO_PROCESSOS), opcoes, snap => receber(snap, () => { processos = docs<Processo>(snap) }), falhar)
             return () => { pararClientes(); pararProcessos() }
         },
         salvarCliente: cliente => gravar(COLECAO_CLIENTES, cliente),

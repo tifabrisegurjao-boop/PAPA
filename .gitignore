@@ -8,8 +8,8 @@ dist-demo
 dados/*
 !dados/base.json
 *.xlsx
-!planilha/*.xlsx
-!planilha/exemplo/*.xlsx
+!planilha/Modelo_Controle_de_Processos_v2.xlsx
+!planilha/exemplo/Controle_de_Processos_EXEMPLO.xlsx
 .env
 .env.*
 !.env.demo

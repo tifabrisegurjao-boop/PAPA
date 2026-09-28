@@ -6,6 +6,8 @@
 //     apaga o campo no banco (antes era um merge com o registro antigo e nada nunca sumia). A planilha v2 tem todas as
 //     colunas que a tela edita, então nada se perde por isso.
 //   - Registro igual ao que já está no banco não é regravado (sem versão nova, sem historico, sem gasto de escrita).
+//     Se só a POSIÇÃO (`ordem`) mudou — linha inserida acima, por exemplo — é uma atualização leve, sem historico, e só em
+//     registro que é da importação (o editado na tela não perde a autoria por causa de ordem).
 //   - Registro editado pela TELA (atualizadoPor sem o prefixo "importação:") é pulado, salvo --forcar; o anterior vai para historico/.
 //   - Casamento do cliente: id → nº do Nexus → nome normalizado. Do processo: id (mesmo cliente) → nº + mesmo cliente →
 //     id com cliente diferente (mudança de cliente, se a planilha não tem outra linha desse nº para o cliente antigo) → novo.
@@ -22,6 +24,7 @@ export const chaveNumero = n => (soDigitos(n).length >= 4 ? soDigitos(n) : norma
 /** Prefixo de `atualizadoPor` das gravações feitas por importação (as regras aceitam "importação:<e-mail do token>"). */
 export const IMPORTACAO = 'importação:'
 export const editadoNoPainel = registro => !!registro?.atualizadoPor && !String(registro.atualizadoPor).startsWith(IMPORTACAO)
+const veioDeImportacao = registro => String(registro?.atualizadoPor ?? '').startsWith(IMPORTACAO)
 
 /** Motivos para recusar um arquivo antes de qualquer login: base de demonstração ou arquivo que não é a saída do conversor. */
 export function conferirBase(base) {
@@ -47,7 +50,9 @@ export function validarRegistro(colecao, dados) {
     for (const k of Object.keys(dados)) if (!chaves.includes(k)) erros.push(`campo "${k}" não existe nas regras`)
     if (colecao === 'papaClientes') {
         if (typeof dados.nome !== 'string' || !dados.nome) erros.push('nome vazio')
-        if (!(dados.tipoPessoa == null || dados.tipoPessoa === 'PF' || dados.tipoPessoa === 'PJ')) erros.push(`tipoPessoa "${dados.tipoPessoa}" (só PF, PJ ou vazio)`)
+        // A regra lê `data.tipoPessoa` sem testar se existe: campo ausente é erro de avaliação (negado). Tem de vir, nem que null.
+        if (!('tipoPessoa' in dados)) erros.push('tipoPessoa ausente (use null quando não souber)')
+        else if (!(dados.tipoPessoa === null || dados.tipoPessoa === 'PF' || dados.tipoPessoa === 'PJ')) erros.push(`tipoPessoa "${dados.tipoPessoa}" (só PF, PJ ou vazio)`)
     } else {
         if (typeof dados.clienteId !== 'string' || !dados.clienteId) erros.push('clienteId vazio')
         if (typeof dados.numero !== 'string' || !dados.numero) erros.push('numero vazio')
@@ -87,26 +92,43 @@ const idLivre = (base, usados) => {
 const ordenar = v => (Array.isArray(v) ? v.map(ordenar) : ehMapa(v) ? Object.fromEntries(Object.keys(v).sort().map(k => [k, ordenar(v[k])])) : v)
 const iguais = (a, b) => JSON.stringify(ordenar(a)) === JSON.stringify(ordenar(b))
 const semControle = ({ id: _i, versao: _v, atualizadoEm: _e, atualizadoPor: _p, ...conteudo }) => conteudo
+const MAX_NOMES_NO_AVISO = 15
 
 /**
  * Decide, sem gravar nada, o que a importação faria com o banco como está.
- * @returns {{ escritas: {colecao, id, dados, anterior, motivo}[], pulados: {colecao, id, atualizadoPor}[], avisos: string[],
- *            resumo: {novos, atualizados, inalterados, forcados, pulados}, novosClientes: string[] }}
+ * @returns {{ escritas: {colecao, id, dados, anterior, motivo: 'novo'|'atualizado'|'forcado'|'ordem'}[],
+ *            pulados: {colecao, id, atualizadoPor}[], avisos: string[],
+ *            resumo: {novos, atualizados, reordenados, inalterados, forcados, pulados}, novosClientes: string[] }}
+ * `motivo: 'ordem'` = só a posição mudou: o script grava sem copiar para historico.
  */
 export function planejarImportacao(base, { clientesNoBanco = [], processosNoBanco = [], forcar = false } = {}) {
     const escritas = [], pulados = [], avisos = [], novosClientes = []
-    const resumo = { novos: 0, atualizados: 0, inalterados: 0, forcados: 0, pulados: 0 }
-    const reimportacao = clientesNoBanco.length > 0 || processosNoBanco.length > 0
+    const resumo = { novos: 0, atualizados: 0, reordenados: 0, inalterados: 0, forcados: 0, pulados: 0 }
+    // Reimportação de verdade = já há registros que vieram de importação (um cliente de teste cadastrado pela tela não conta).
+    const reimportacao = [...clientesNoBanco, ...processosNoBanco].some(veioDeImportacao)
 
+    /** Decide o destino de um registro e devolve o motivo: novo | atualizado | forcado | ordem | inalterado | pulado. */
     const decidir = (colecao, id, dados, existente) => {
         const limpo = JSON.parse(JSON.stringify(dados)) // tira undefined, como o gravador da tela
-        if (!existente) { escritas.push({ colecao, id, dados: limpo, anterior: null, motivo: 'novo' }); resumo.novos++; return }
-        if (iguais(semControle(existente), limpo)) { resumo.inalterados++; return }
+        if (!existente) { escritas.push({ colecao, id, dados: limpo, anterior: null, motivo: 'novo' }); resumo.novos++; return 'novo' }
+        const atual = semControle(existente)
+        const { ordem: ordemAtual, ...conteudoAtual } = atual
+        const { ordem: ordemNova, ...conteudoNovo } = limpo
         const editado = editadoNoPainel(existente)
-        if (editado && !forcar) { pulados.push({ colecao, id, atualizadoPor: existente.atualizadoPor }); resumo.pulados++; return }
+        if (iguais(conteudoAtual, conteudoNovo)) {
+            if (ordemAtual !== ordemNova && ordemNova !== undefined && !editado) {
+                escritas.push({ colecao, id, dados: { ...atual, ordem: ordemNova }, anterior: existente, motivo: 'ordem' })
+                resumo.reordenados++
+                return 'ordem'
+            }
+            resumo.inalterados++
+            return 'inalterado'
+        }
+        if (editado && !forcar) { pulados.push({ colecao, id, atualizadoPor: existente.atualizadoPor }); resumo.pulados++; return 'pulado' }
         escritas.push({ colecao, id, dados: limpo, anterior: existente, motivo: editado ? 'forcado' : 'atualizado' })
         if (editado) resumo.forcados++
         else resumo.atualizados++
+        return editado ? 'forcado' : 'atualizado'
     }
 
     // ── clientes ──
@@ -114,24 +136,31 @@ export function planejarImportacao(base, { clientesNoBanco = [], processosNoBanc
     const clientePorNexus = new Map(clientesNoBanco.filter(c => soDigitos(c.numeroNexus)).map(c => [soDigitos(c.numeroNexus), c]))
     const clientePorNome = new Map(clientesNoBanco.map(c => [normalizar(c.nome), c]))
     const idsClientes = new Set(clientesNoBanco.map(c => c.id))
-    const consumidosC = new Set()
+    const consumidosC = new Map() // id no banco → nome da linha da planilha que o levou
     const idClienteFinal = new Map() // id na planilha → id no banco
     const criadosC = new Set()
     for (const c of base.clientes) {
         const { id: idPlanilha, ...dados } = c
-        const candidatos = [clientePorId.get(idPlanilha), soDigitos(c.numeroNexus) ? clientePorNexus.get(soDigitos(c.numeroNexus)) : undefined, clientePorNome.get(normalizar(c.nome))]
-        const existente = candidatos.find(x => x && !consumidosC.has(x.id))
+        const nexus = soDigitos(c.numeroNexus)
+        const candidatos = [['id', clientePorId.get(idPlanilha)], ['nexus', nexus ? clientePorNexus.get(nexus) : undefined], ['nome', clientePorNome.get(normalizar(c.nome))]]
+            .filter(([, x]) => x)
+        const [como, existente] = candidatos.find(([, x]) => !consumidosC.has(x.id)) ?? []
+        // Ambiguidade: esta linha também aponta para um registro do banco que outra linha já levou (duas grafias do mesmo cliente?).
+        for (const [, x] of candidatos)
+            if (consumidosC.has(x.id) && x.id !== existente?.id && !avisos.includes(`AMB:${x.id}:${c.nome}`))
+                avisos.push(`cliente "${c.nome}" também corresponde a "${x.nome}" do banco, que já foi tomado pela linha "${consumidosC.get(x.id)}" — confira se são a mesma pessoa`)
         const idFinal = existente ? existente.id : idLivre(idPlanilha, idsClientes)
         idsClientes.add(idFinal)
         idClienteFinal.set(idPlanilha, idFinal)
-        if (existente) {
-            consumidosC.add(existente.id)
-            if (normalizar(existente.nome) !== normalizar(c.nome)) avisos.push(`cliente "${existente.nome}" (banco) passa a se chamar "${c.nome}" (mesmo nº do Nexus ${c.numeroNexus})`)
-        } else {
-            criadosC.add(idFinal)
-            if (reimportacao) novosClientes.push(c.nome)
+        if (existente) consumidosC.set(existente.id, c.nome)
+        else { criadosC.add(idFinal); if (reimportacao) novosClientes.push(c.nome) }
+        const motivo = decidir('papaClientes', idFinal, dados, existente)
+        if (existente && (motivo === 'atualizado' || motivo === 'forcado')) {
+            if (normalizar(existente.nome) !== normalizar(c.nome))
+                avisos.push(`cliente "${existente.nome}" (banco) passa a se chamar "${c.nome}" (${como === 'nexus' ? `mesmo nº do Nexus ${c.numeroNexus}` : `mesmo id ${existente.id}`}${motivo === 'forcado' ? '; sobrescrito com --forcar' : ''})`)
+            if (soDigitos(existente.numeroNexus) && !nexus)
+                avisos.push(`cliente "${c.nome}" perde o nº do Nexus ${existente.numeroNexus} que tinha no banco (célula vazia na planilha)`)
         }
-        decidir('papaClientes', idFinal, dados, existente)
     }
 
     // ── processos: 1ª passada decide o id de cada linha; 2ª grava com pai e cliente remapeados ──
@@ -148,47 +177,62 @@ export function planejarImportacao(base, { clientesNoBanco = [], processosNoBanc
     const consumidosP = new Set()
     const idProcessoFinal = new Map()
     const decisoes = []
-    const mudancasDeCliente = [] // { processo, de, para }
     for (const p of base.processos) {
         const clienteIdFinal = idClienteFinal.get(p.clienteId) ?? p.clienteId
         const k = chaveNumero(p.numero)
         const porId = processoPorId.get(p.id)
         const livre = x => x && !consumidosP.has(x.id)
-        let existente
+        let existente, mudanca
         if (livre(porId) && porId.clienteId === clienteIdFinal) existente = porId
         else existente = (porNumero.get(k) ?? []).find(x => livre(x) && x.clienteId === clienteIdFinal)
         if (!existente && livre(porId) && !linhasPorNumero.get(k)?.has(porId.clienteId)) {
             existente = porId // o nº saiu do cliente antigo: é mudança de cliente, não um segundo processo
-            mudancasDeCliente.push({ processo: p.numero, de: porId.clienteId, para: clienteIdFinal })
+            mudanca = { processo: p.numero, de: porId.clienteId, para: clienteIdFinal }
         }
         const idFinal = existente ? existente.id : idLivre(p.id, idsProcessos)
-        if (!existente && (porNumero.get(k) ?? []).length)
-            avisos.push(`processo ${p.numero} já existe no banco para outro cliente — mantido como registro separado (${idFinal})`)
+        if (!existente) {
+            const candidatosN = porNumero.get(k) ?? []
+            const doMesmo = candidatosN.find(x => x.clienteId === clienteIdFinal)
+            if (doMesmo) avisos.push(`processo ${p.numero}: o registro deste cliente com esse nº (${doMesmo.id}) já foi usado por outra linha da planilha — esta linha vira um segundo registro (${idFinal}); confira se o nº está repetido para o mesmo cliente`)
+            else if (candidatosN.length) avisos.push(`processo ${p.numero} já existe no banco para outro cliente — mantido como registro separado (${idFinal})`)
+        }
         idsProcessos.add(idFinal)
         if (existente) consumidosP.add(existente.id)
         idProcessoFinal.set(p.id, idFinal)
-        decisoes.push({ p, idFinal, existente, clienteIdFinal })
+        decisoes.push({ p, idFinal, existente, clienteIdFinal, mudanca })
     }
-    for (const { p, idFinal, existente, clienteIdFinal } of decisoes) {
+    const movidos = [] // mudanças de cliente que serão gravadas de fato
+    const ficaram = new Map() // cliente antigo → nºs que ficaram lá por terem sido editados na tela (pulados)
+    for (const { p, idFinal, existente, clienteIdFinal, mudanca } of decisoes) {
         const { id: _id, ...dados } = p
         dados.clienteId = clienteIdFinal
         if (dados.processoPaiId && idProcessoFinal.has(dados.processoPaiId)) dados.processoPaiId = idProcessoFinal.get(dados.processoPaiId)
-        decidir('papaProcessos', idFinal, dados, existente)
+        const motivo = decidir('papaProcessos', idFinal, dados, existente)
+        if (!mudanca) continue
+        if (motivo === 'atualizado' || motivo === 'forcado') movidos.push(mudanca)
+        else if (motivo === 'pulado') { if (!ficaram.has(mudanca.de)) ficaram.set(mudanca.de, []); ficaram.get(mudanca.de).push(mudanca.processo) }
     }
 
-    // Provável renomeação: um cliente do banco que SUMIU da planilha perdeu TODOS os processos para um cliente criado agora.
+    // Provável renomeação: um cliente do banco que SUMIU da planilha perde TODOS os processos para um cliente criado agora.
     const nomeC = id => clientesNoBanco.find(c => c.id === id)?.nome ?? base.clientes.find(c => idClienteFinal.get(c.id) === id)?.nome ?? id
     const porOrigem = new Map()
-    for (const m of mudancasDeCliente) { if (!porOrigem.has(m.de)) porOrigem.set(m.de, []); porOrigem.get(m.de).push(m) }
+    for (const m of movidos) { if (!porOrigem.has(m.de)) porOrigem.set(m.de, []); porOrigem.get(m.de).push(m) }
     for (const [de, lista] of porOrigem) {
         const totalNoBanco = processosNoBanco.filter(x => x.clienteId === de).length
         const destinos = new Set(lista.map(m => m.para))
-        if (!consumidosC.has(de) && lista.length === totalNoBanco && destinos.size === 1 && criadosC.has([...destinos][0]))
-            avisos.push(`provável renomeação: "${nomeC(de)}" (banco) → "${nomeC([...destinos][0])}" (planilha). O cadastro antigo fica no banco sem processos; ` +
-                'para renomear sem duplicar, corrija o nome pela tela ou dê o mesmo nº do Nexus aos dois.')
+        const presos = ficaram.get(de) ?? []
+        if (!consumidosC.has(de) && lista.length + presos.length === totalNoBanco && destinos.size === 1 && criadosC.has([...destinos][0]))
+            avisos.push(`provável renomeação: "${nomeC(de)}" (banco) → "${nomeC([...destinos][0])}" (planilha). ` +
+                (presos.length
+                    ? `O(s) processo(s) ${presos.join(', ')} fica(m) no cadastro antigo porque foi(ram) editado(s) pela tela (use --forcar ou corrija pela tela). `
+                    : 'O cadastro antigo fica no banco sem processos. ') +
+                'Para renomear sem duplicar, corrija o nome pela tela ou dê o mesmo nº do Nexus aos dois.')
         else for (const m of lista) avisos.push(`processo ${m.processo} muda de cliente: "${nomeC(m.de)}" → "${nomeC(m.para)}"`)
     }
-    if (novosClientes.length) avisos.push(`clientes novos nesta reimportação (confira se algum é grafia diferente de cliente já existente): ${novosClientes.join('; ')}`)
+    if (novosClientes.length) {
+        const lista = novosClientes.slice(0, MAX_NOMES_NO_AVISO).join('; ') + (novosClientes.length > MAX_NOMES_NO_AVISO ? ` … e mais ${novosClientes.length - MAX_NOMES_NO_AVISO}` : '')
+        avisos.push(`clientes novos nesta reimportação (confira se algum é grafia diferente de cliente já existente): ${lista}`)
+    }
 
     return { escritas, pulados, avisos, resumo, novosClientes }
 }

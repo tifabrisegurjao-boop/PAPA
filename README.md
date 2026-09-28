@@ -114,11 +114,11 @@ npm run dev      # http://localhost:5173 — entrar com usuário do Nexus que es
 npm test
 npm run build    # gera dist/ (produção: sem base em JSON; lê o Firestore)
 ```
-Para mexer no visual sem senha: `http://localhost:5173/?semLogin` — só existe no servidor de desenvolvimento (`import.meta.env.DEV`), não vai para o build. Também só no dev: `VITE_BANCO=json npm run dev` pede login mas lê `dados/base.json` em vez do Firestore.
+Para mexer no visual sem senha: `http://localhost:5173/?semLogin` — só existe no servidor de desenvolvimento (`import.meta.env.DEV`), não vai para o build. Também só no dev: com `VITE_BANCO=json` (no PowerShell: `$env:VITE_BANCO='json'; npm run dev`, ou a linha `VITE_BANCO=json` num `.env.local`, que o git ignora) o sistema pede login mas lê `dados/base.json` em vez do Firestore.
 
 **Demonstração sem login:** `npm run build:demo` gera `dist-demo/` com `VITE_DEMO=1` (ver `.env.demo`) — a tela abre direto, com o selo "demonstração". Serve para mostrar o sistema por link com a base fictícia; **nunca** publicar essa versão com dado real.
 
-> **OneDrive segura o `dist/`.** Logo após o build, o cliente de sincronização mantém os arquivos abertos: o esvaziamento do Vite e o `fs.rm` do Node "apagam" sem apagar. Por isso `npm run build` roda `scripts/limpar-dist.mjs` no fim: confere `dist/assets` contra o `index.html`, tenta de novo e **avisa** se sobrou bundle antigo. Antes de publicar, olhe esse aviso (ou gere fora do OneDrive: `npx vite build --outDir %LOCALAPPDATA%\papa-dist`).
+> **OneDrive segura o `dist/`.** Logo após o build, o cliente de sincronização mantém os arquivos abertos: o esvaziamento do Vite e o `fs.rm` do Node "apagam" sem apagar. Por isso `npm run build` roda `scripts/limpar-dist.mjs` no fim: confere `dist/assets` contra o `index.html`, tenta de novo e **avisa** se sobrou bundle antigo. Antes de publicar, olhe esse aviso (ou gere fora do OneDrive — PowerShell: `npx vite build --outDir "$env:LOCALAPPDATA\papa-dist"`; cmd: `npx vite build --outDir %LOCALAPPDATA%\papa-dist`).
 
 ## Pendências
 - [ ] **Backup do Firestore** (Spark não tem exportação automática): rotina de exportação, ou manter a planilha como cópia do importado até lá.

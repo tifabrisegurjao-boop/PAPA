@@ -39,15 +39,19 @@ console.log(`  origem: ${base.origem ?? '?'} · gerado em ${String(base.geradoEm
 console.log('  Enquanto a importação roda, ninguém deve salvar pela tela: o que for salvo nesse intervalo pode ser sobrescrito.\n')
 
 // ── login ──
-const perguntar = async pergunta => { const rl = createInterface({ input: stdin, output: stdout }); const r = await rl.question(pergunta); rl.close(); return r.trim() }
+const cancelar = () => sair('Cancelado. Nada foi gravado.', 0)
+// Ctrl+C numa pergunta: em modo terminal o readline recebe a tecla (não o SIGINT do processo) e rejeita a promessa com AbortError.
+const perguntarEm = async (rl, pergunta) => {
+    rl.on('SIGINT', cancelar)
+    try { return (await rl.question(pergunta)).trim() } catch (e) { if (e?.name === 'AbortError') cancelar(); throw e } finally { rl.close() }
+}
+const perguntar = pergunta => perguntarEm(createInterface({ input: stdin, output: stdout }), pergunta)
 const email = await perguntar('E-mail (usuário do Nexus): ')
 // Senha sem eco: a interface escreve num stream mudo enquanto lê (a interface anterior já foi fechada — duas no mesmo stdin ecoariam).
 const mudo = new Writable({ write(_c, _e, cb) { cb() } })
-const rlSenha = createInterface({ input: stdin, output: mudo, terminal: true })
 stdout.write('Senha: ')
-const senha = await rlSenha.question('')
+const senha = await perguntarEm(createInterface({ input: stdin, output: mudo, terminal: true }), '')
 stdout.write('\n')
-rlSenha.close()
 
 const app = initializeApp({
     apiKey: 'AIzaSyB-RBsirfY1v0Db9BtzKhix37mObE0mfyw',
@@ -59,6 +63,9 @@ const db = getFirestore(app)
 
 const MENSAGENS_LOGIN = {
     'auth/invalid-credential': 'E-mail ou senha incorretos.',
+    'auth/wrong-password': 'E-mail ou senha incorretos.',
+    'auth/user-not-found': 'E-mail ou senha incorretos.',
+    'auth/missing-password': 'Senha vazia.',
     'auth/invalid-email': 'E-mail inválido.',
     'auth/user-disabled': 'Esta conta está desativada no Firebase.',
     'auth/too-many-requests': 'Muitas tentativas. Aguarde alguns minutos e tente de novo.',
@@ -99,7 +106,7 @@ if (invalidos.length)
     sair(`${invalidos.length} documento(s) seriam recusados pelas regras do banco — nada foi gravado. Corrija na planilha e gere o JSON de novo:\n  - ${invalidos.join('\n  - ')}`)
 
 const r = plano.resumo
-console.log(`Plano: ${r.novos} novos · ${r.atualizados} atualizados · ${r.inalterados} inalterados (não serão regravados) · ${r.forcados} sobrescritos com --forcar · ${r.pulados} pulados (editados pela tela)`)
+console.log(`Plano: ${r.novos} novos · ${r.atualizados} atualizados · ${r.reordenados} só mudaram de posição · ${r.inalterados} inalterados (não serão regravados) · ${r.forcados} sobrescritos com --forcar · ${r.pulados} pulados (editados pela tela)`)
 if (plano.pulados.length) console.log(`  Pulados (use --forcar para sobrescrever; o estado anterior vai para historico/):\n   ${plano.pulados.map(p => `${p.colecao}/${p.id} (${p.atualizadoPor})`).join('\n   ')}`)
 if (plano.avisos.length) console.log(`  Avisos:\n   ⚠ ${plano.avisos.join('\n   ⚠ ')}`)
 if (!plano.escritas.length) { console.log('\nNada a gravar: o banco já está igual à planilha.'); process.exit(0) }
@@ -123,7 +130,7 @@ const commit = async () => {
 }
 for (const e of plano.escritas) {
     const ref = doc(db, e.colecao, e.id)
-    if (e.anterior) {
+    if (e.anterior && e.motivo !== 'ordem') { // só a posição mudou: não vale uma cópia no historico
         lote.set(doc(collection(ref, 'historico')), { ...paraHistorico(e.anterior), arquivadoEm: serverTimestamp(), arquivadoPor: quem })
         noLote++
     }
@@ -133,5 +140,5 @@ for (const e of plano.escritas) {
     if (noLote >= 440) await commit()
 }
 await commit()
-console.log(`\n✔ ${gravados} documento(s) gravados: ${r.novos} novos · ${r.atualizados} atualizados · ${r.forcados} sobrescritos com --forcar. ${r.pulados} pulados, ${r.inalterados} já estavam iguais.`)
+console.log(`\n✔ ${gravados} documento(s) gravados: ${r.novos} novos · ${r.atualizados} atualizados · ${r.reordenados} reposicionados · ${r.forcados} sobrescritos com --forcar. ${r.pulados} pulados, ${r.inalterados} já estavam iguais.`)
 process.exit(0)
