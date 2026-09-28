@@ -1,4 +1,10 @@
-# Publica a DEMONSTRAÇÃO (build:demo: sem login, base fictícia, sem Firebase) no GitHub Pages a cada push na main.
+# Publica a DEMONSTRAÇÃO (build:demo: sem login, base fictícia, sem Firebase) no GitHub Pages.
+#
+# O que vai ao ar vem SEMPRE do branch `demo` (MVP congelado em 28/09/2026, o que a chefia recebeu por link) — nunca da `main`.
+# A `main` segue evoluindo para a produção (Firestore, dado real) sem alterar a demo. O gatilho continua sendo push na `main`
+# (ou "Run workflow" à mão) porque o ambiente github-pages só aceita deploy disparado a partir da `main`.
+# Para atualizar a demo: leve a mudança ao branch `demo` (merge/cherry-pick) e `git push origin demo main`.
+#
 # Em Settings › Pages, a fonte precisa ser "GitHub Actions" (o passo configure-pages liga isso sozinho na 1ª vez).
 # O site fica em https://<conta>.github.io/PAPA/ — os caminhos do build são relativos (base: './'), então funciona na subpasta.
 name: Demo no GitHub Pages
@@ -22,16 +28,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: demo # conteúdo congelado da demonstração (ver cabeçalho)
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
       - run: npm ci
-      # A base de dados não vai para o repositório (dados/base.json está no .gitignore). Se alguém a tiver
-      # commitado de propósito, ela é usada; senão a demo sai com a base pequena e fictícia do exemplo.
+      # A base FICTÍCIA dados/base.json está commitada de propósito no branch `demo`; se faltar, sai a base pequena do exemplo.
       - name: Base de dados da demo
         run: |
-          if [ -f dados/base.json ]; then echo "usando dados/base.json do repositório"; else npm run dados:exemplo; fi
+          if [ -f dados/base.json ]; then echo "usando dados/base.json do branch demo"; else npm run dados:exemplo; fi
       - run: npm test
       - run: npm run build:demo
       - run: touch dist-demo/.nojekyll
