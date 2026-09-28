@@ -21,12 +21,16 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: O branch demo precisa estar no GitHub
+        run: |
+          git ls-remote --exit-code --heads "https://github.com/${{ github.repository }}.git" demo >/dev/null \
+            || { echo "::error::O branch 'demo' (conteúdo da demonstração) não está no GitHub. Rode: git push origin demo"; exit 1; }
       - uses: actions/checkout@v4
         with:
           ref: demo # conteúdo congelado da demonstração (ver cabeçalho)

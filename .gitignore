@@ -2,3 +2,14 @@ node_modules
 dist
 dist-demo
 *.local
+
+# O repositório é PÚBLICO: dado real nunca entra. Só a base FICTÍCIA da demo (dados/base.json) é versionada;
+# a saída do conversor com a planilha real vai para dados/real/ (ignorada), e planilha .xlsx só o modelo e o exemplo.
+dados/*
+!dados/base.json
+*.xlsx
+!planilha/*.xlsx
+!planilha/exemplo/*.xlsx
+.env
+.env.*
+!.env.demo

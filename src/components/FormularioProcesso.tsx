@@ -3,11 +3,13 @@ import { Save, X } from 'lucide-react'
 import { erroNumero } from '../lib/validacao.ts'
 import { idLivre, idProcesso } from '../lib/ids.ts'
 import { LISTAS, NOME_DO_ORGAO } from '../lib/listas.ts'
+import { LIMITES, erroTamanho } from '../lib/limites.mjs'
 import type { Processo } from '../tipos.ts'
 import { Area, Campo, Secao, Selecao } from './Campos.tsx'
 import { proximaOrdem } from './FormularioCliente.tsx'
 
 const SIM_NAO = [{ valor: 'SIM', texto: 'SIM' }, { valor: 'NÃO', texto: 'NÃO' }]
+const L = LIMITES.papaProcessos
 
 interface Props {
     /** Processo existente (edição) ou vazio (novo). */
@@ -71,6 +73,13 @@ export default function FormularioProcesso({ inicial, clienteId, origemInicialId
 
     function validar() {
         const e: Record<string, string> = {}
+        // Mesmos tetos das regras do banco (src/lib/limites.mjs): avisar aqui, não depois de um "sem permissão".
+        const textos = { numero: f.numero, sistema: f.sistema, tipo: f.tipo, natureza: f.natureza, objeto: f.objeto, orgaoSigla: f.orgaoSigla,
+            status: f.status, situacaoAtual: f.situacaoAtual, observacao: f.observacao, linkProcesso: f.linkProcesso, codigoCasoNexus: f.codigoCasoNexus }
+        for (const [campo, valor] of Object.entries(textos)) {
+            const t = erroTamanho('papaProcessos', campo, valor)
+            if (t) e[campo] = t
+        }
         const numero = f.numero.trim()
         const erroN = erroNumero(numero, inicial, todosProcessos)
         if (erroN) e.numero = erroN
@@ -132,34 +141,36 @@ export default function FormularioProcesso({ inicial, clienteId, origemInicialId
         <form onSubmit={enviar} className="space-y-4">
             <Secao titulo="Identificação">
                 <Campo rotulo="Nº do processo" obrigatorio value={f.numero} onChange={muda('numero')} erro={erros.numero} autoFocus
-                    placeholder="0038.001245/2026-31" ajuda="Número exato do sistema de origem (SEI, PJe, TCU…)." />
-                <Campo rotulo="Sistema" value={f.sistema} onChange={muda('sistema')} opcoes={LISTAS.sistema} />
+                    placeholder="0038.001245/2026-31" maxLength={L.numero} ajuda="Número exato do sistema de origem (SEI, PJe, TCU…)." />
+                <Campo rotulo="Sistema" value={f.sistema} onChange={muda('sistema')} opcoes={LISTAS.sistema} maxLength={L.sistema} erro={erros.sistema} />
                 <Selecao rotulo="Processo de origem" value={f.processoPaiId} onChange={muda('processoPaiId')} opcoes={opcoesOrigem} erro={erros.processoPaiId}
                     vazio="Nenhum — é um processo principal" ajuda="Só para desdobramentos (recurso, comunicação…)." />
                 <Selecao rotulo="Vínculo" value={f.vinculo} onChange={muda('vinculo')} disabled={!f.processoPaiId} erro={erros.vinculo}
                     opcoes={LISTAS.vinculo.map(v => ({ valor: v.toLowerCase(), texto: v }))} />
             </Secao>
             <Secao titulo="Classificação">
-                <Campo rotulo="Tipo" value={f.tipo} onChange={muda('tipo')} opcoes={LISTAS.tipo} />
-                <Campo rotulo="Natureza" value={f.natureza} onChange={muda('natureza')} opcoes={LISTAS.natureza} />
-                <Campo rotulo="Órgão (sigla)" value={f.orgaoSigla} onChange={muda('orgaoSigla')} opcoes={LISTAS.orgaos.map(o => o[0])}
+                <Campo rotulo="Tipo" value={f.tipo} onChange={muda('tipo')} opcoes={LISTAS.tipo} maxLength={L.tipo} erro={erros.tipo} />
+                <Campo rotulo="Natureza" value={f.natureza} onChange={muda('natureza')} opcoes={LISTAS.natureza} maxLength={L.natureza} erro={erros.natureza} />
+                <Campo rotulo="Órgão (sigla)" value={f.orgaoSigla} onChange={muda('orgaoSigla')} opcoes={LISTAS.orgaos.map(o => o[0])} maxLength={L.orgaoSigla} erro={erros.orgaoSigla}
                     ajuda={f.orgaoSigla && NOME_DO_ORGAO[f.orgaoSigla.trim()] ? NOME_DO_ORGAO[f.orgaoSigla.trim()] : 'Sigla fora da lista fica sem o nome completo no painel.'} />
-                <Campo rotulo="Status do processo" value={f.status} onChange={muda('status')} opcoes={LISTAS.status} />
-                <Area rotulo="Objeto" value={f.objeto} onChange={muda('objeto')} className="md:col-span-2" placeholder="Descrição curta do que se discute." />
+                <Campo rotulo="Status do processo" value={f.status} onChange={muda('status')} opcoes={LISTAS.status} maxLength={L.status} erro={erros.status} />
+                <Area rotulo="Objeto" value={f.objeto} onChange={muda('objeto')} className="md:col-span-2" placeholder="Descrição curta do que se discute."
+                    maxLength={L.objeto} erro={erros.objeto} />
             </Secao>
             <Secao titulo="Andamento">
-                <Area rotulo="Situação atual" value={f.situacaoAtual} onChange={muda('situacaoAtual')} className="md:col-span-2"
+                <Area rotulo="Situação atual" value={f.situacaoAtual} onChange={muda('situacaoAtual')} className="md:col-span-2" maxLength={L.situacaoAtual} erro={erros.situacaoAtual}
                     ajuda="É o que aparece em 'Histórico / Situação atual'. Escreva para quem vai ler sem contexto." />
                 <div className="grid grid-cols-[1fr_auto] gap-2">
                     <Campo rotulo="Última movimentação — data" type="date" value={f.movData} onChange={muda('movData')} />
                     <Campo rotulo="Hora" type="time" value={f.movHora} onChange={muda('movHora')} disabled={!f.movData} />
                 </div>
                 <Campo rotulo="Última movimentação — descrição" value={f.movDescricao} onChange={muda('movDescricao')} />
-                <Area rotulo="Observação" value={f.observacao} onChange={muda('observacao')} className="md:col-span-2"
+                <Area rotulo="Observação" value={f.observacao} onChange={muda('observacao')} className="md:col-span-2" maxLength={L.observacao} erro={erros.observacao}
                     ajuda="Histórico de acessos e justificativas. Enquanto a situação atual estiver vazia, o painel mostra este texto." />
             </Secao>
             <Secao titulo="Acesso externo">
-                <Campo rotulo="Link do processo (URL)" value={f.linkProcesso} onChange={muda('linkProcesso')} erro={erros.linkProcesso} className="md:col-span-2" placeholder="https://sei.sistemas.ro.gov.br/…" />
+                <Campo rotulo="Link do processo (URL)" value={f.linkProcesso} onChange={muda('linkProcesso')} erro={erros.linkProcesso} className="md:col-span-2"
+                    placeholder="https://sei.sistemas.ro.gov.br/…" maxLength={L.linkProcesso} />
                 <Campo rotulo="Forma de acesso" value={f.acessoForma} onChange={muda('acessoForma')} opcoes={LISTAS.formaAcesso} />
                 <Campo rotulo="Conta de acesso" value={f.acessoConta} onChange={muda('acessoConta')} opcoes={LISTAS.conta} ajuda="Só o e-mail. Senha fica no gerenciador de senhas." />
                 <Selecao rotulo="Acesso no SEI GERAL?" value={f.acessoSeiGeral} onChange={muda('acessoSeiGeral')} opcoes={SIM_NAO} />
@@ -167,7 +178,7 @@ export default function FormularioProcesso({ inicial, clienteId, origemInicialId
                 <Campo rotulo="Término do acesso" type="date" value={f.acessoTermino} onChange={muda('acessoTermino')} ajuda="Vencido, o processo fica vermelho no painel." />
                 <Selecao rotulo="Solicitar renovação?" value={f.acessoRenovar} onChange={muda('acessoRenovar')} opcoes={SIM_NAO} ajuda="SIM = entra na fila da rotina semanal." />
                 <Campo rotulo="Situação do acesso" value={f.acessoSituacao} onChange={muda('acessoSituacao')} opcoes={LISTAS.situacaoAcesso} />
-                <Campo rotulo="Código do caso (Nexus)" value={f.codigoCasoNexus} onChange={muda('codigoCasoNexus')} placeholder="1234-26.5678" />
+                <Campo rotulo="Código do caso (Nexus)" value={f.codigoCasoNexus} onChange={muda('codigoCasoNexus')} placeholder="1234-26.5678" maxLength={L.codigoCasoNexus} erro={erros.codigoCasoNexus} />
             </Secao>
             {falha && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-700">{falha}</p>}
             <div className="flex flex-wrap items-center gap-3">

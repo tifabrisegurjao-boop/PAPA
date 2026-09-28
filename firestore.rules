@@ -4,7 +4,7 @@ rules_version = '2';
 // Contém as coleções do Nexus (clients, cases — inalteradas) e as do Projeto PAPA (papaClientes, papaProcessos).
 // O arquivo Fabris-Gurjao/firestore.nexus.rules deve ser cópia idêntica deste (ou ser apagado).
 //
-// PAPA: só quem está na coleção `papaEquipe` (documento com id = e-mail da pessoa, criado no Console) lê e grava.
+// PAPA: só quem está na coleção `papaEquipe` (documento com id = e-mail da pessoa, TODO EM MINÚSCULAS, criado no Console) lê e grava.
 // Estar logado não basta — a apiKey é pública e, com o cadastro aberto no Auth, "logado" poderia ser qualquer um.
 // Nada é apagado (delete negado); o estado anterior de cada gravação vai para a subcoleção `historico`, que só aceita criação.
 service cloud.firestore {
@@ -27,7 +27,7 @@ service cloud.firestore {
     function daEquipe() {
       return signedIn()
         && request.auth.token.email != null
-        && exists(/databases/$(database)/documents/papaEquipe/$(request.auth.token.email));
+        && exists(/databases/$(database)/documents/papaEquipe/$(request.auth.token.email.lower()));
     }
 
     // Quem grava assina: `atualizadoPor` é o próprio e-mail (ou "importação:<e-mail>" no script de carga)

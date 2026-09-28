@@ -1,30 +1,53 @@
-// npm run dados:firestore -- [base.json] [--forcar]
-// Envia a base (gerada da planilha por `npm run dados`) para o Firestore do projeto pagamento-255fc — o banco
-// que o painel lê e edita. Roda com o SDK web do Firebase e o login de um usuário do escritório (pede e-mail e
-// senha no terminal; a senha não fica em lugar nenhum).
+// npm run dados:firestore -- caminho/do/arquivo.json [--forcar]
+// Envia a base gerada da planilha REAL (`npm run dados -- planilha.xlsx` → dados/real/base.json) para o Firestore do projeto
+// pagamento-255fc — o banco que o painel lê e edita. Usa o SDK web do Firebase e o login de alguém da equipe (pede e-mail
+// e senha no terminal; a senha não fica em lugar nenhum).
 //
-// Regras de segurança da importação (o painel é o cofre; a planilha entra por aqui):
-//   - casa cada linha pelo id (slug do nº / do nome) e, se não achar, pelo nº do processo / nome do cliente já
-//     gravados (quem corrigiu um número no painel não ganha uma cópia);
-//   - registro EDITADO NO PAINEL (atualizadoPor sem o prefixo "importação:") não é sobrescrito — é pulado com aviso,
-//     salvo com --forcar; nesse caso o estado anterior vai para historico/;
-//   - nunca apaga nada: linha que sumiu da planilha continua no banco.
+// O que este script garante (as regras em si estão em scripts/lib/importacao.mjs, testadas):
+//   - recusa base de demonstração (dados/base.json é fictícia e não tem como ser apagada pelo sistema depois);
+//   - mostra o plano (novos / atualizados / inalterados / pulados / avisos) e só grava depois de você digitar SIM;
+//   - confere cada documento contra os limites das regras ANTES de gravar: um campo grande demais é apontado pelo id e
+//     pelo campo, em vez de derrubar um lote inteiro com "Missing or insufficient permissions";
+//   - registro editado pela tela não é sobrescrito (só com --forcar; o anterior vai para historico/); nada é apagado.
 import { readFileSync } from 'node:fs'
 import { createInterface } from 'node:readline/promises'
 import { stdin, stdout } from 'node:process'
 import { Writable } from 'node:stream'
 import { initializeApp } from 'firebase/app'
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
-import { collection, doc, getDocs, getFirestore, serverTimestamp, writeBatch } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, getFirestore, serverTimestamp, writeBatch } from 'firebase/firestore'
+import { IMPORTACAO, conferirBase, paraHistorico, planejarImportacao, validarRegistro } from './lib/importacao.mjs'
 
 const args = process.argv.slice(2)
 const forcar = args.includes('--forcar')
-const arquivo = args.find(a => !a.startsWith('--')) ?? 'dados/base.json'
-const base = JSON.parse(readFileSync(arquivo, 'utf8'))
+const arquivo = args.find(a => !a.startsWith('--'))
+const sair = (mensagem, codigo = 1) => { console.error(`\n✖ ${mensagem}`); process.exit(codigo) }
 
-const normalizar = t => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[.,\-/_]+/g, ' ').replace(/\s+/g, ' ').trim()
-const soDigitos = t => String(t ?? '').replace(/\D/g, '')
-const chaveNumero = n => (soDigitos(n).length >= 4 ? soDigitos(n) : normalizar(n))
+if (!arquivo) sair('Uso: npm run dados:firestore -- caminho/do/arquivo.json [--forcar]\n' +
+    '  O arquivo é o JSON gerado por `npm run dados` a partir da planilha REAL (por padrão dados/real/base.json).\n' +
+    '  dados/base.json é a base FICTÍCIA da demonstração e não vai para o banco.')
+if (!stdin.isTTY) sair('Rode num terminal interativo (PowerShell ou Prompt de Comando): o script pede e-mail e senha.')
+
+let base
+try { base = JSON.parse(readFileSync(arquivo, 'utf8')) } catch (e) { sair(`Não consegui ler ${arquivo}: ${e.message}`) }
+const problemas = conferirBase(base)
+if (problemas.length) sair(`${arquivo} não pode ir para o banco real:\n  - ${problemas.join('\n  - ')}`)
+
+console.log(`Arquivo: ${arquivo}`)
+console.log(`  origem: ${base.origem ?? '?'} · gerado em ${String(base.geradoEm ?? '?').replace('T', ' ')} · ${base.clientes.length} clientes · ${base.processos.length} processos` +
+    (base.avisos?.length ? ` · ${base.avisos.length} avisos do conversor (veja o JSON)` : ''))
+console.log('  Enquanto a importação roda, ninguém deve salvar pela tela: o que for salvo nesse intervalo pode ser sobrescrito.\n')
+
+// ── login ──
+const perguntar = async pergunta => { const rl = createInterface({ input: stdin, output: stdout }); const r = await rl.question(pergunta); rl.close(); return r.trim() }
+const email = await perguntar('E-mail (usuário do Nexus): ')
+// Senha sem eco: a interface escreve num stream mudo enquanto lê (a interface anterior já foi fechada — duas no mesmo stdin ecoariam).
+const mudo = new Writable({ write(_c, _e, cb) { cb() } })
+const rlSenha = createInterface({ input: stdin, output: mudo, terminal: true })
+stdout.write('Senha: ')
+const senha = await rlSenha.question('')
+stdout.write('\n')
+rlSenha.close()
 
 const app = initializeApp({
     apiKey: 'AIzaSyB-RBsirfY1v0Db9BtzKhix37mObE0mfyw',
@@ -34,65 +57,81 @@ const app = initializeApp({
 const auth = getAuth(app)
 const db = getFirestore(app)
 
-const rl = createInterface({ input: stdin, output: stdout })
-const email = (await rl.question('E-mail (usuário do Nexus): ')).trim()
-rl.close() // fecha ANTES da senha: duas interfaces no mesmo stdin ecoariam o que for digitado
-// Senha sem eco: a interface escreve num stream mudo enquanto lê.
-const mudo = new Writable({ write(_c, _e, cb) { cb() } })
-const rlSenha = createInterface({ input: stdin, output: mudo, terminal: true })
-stdout.write('Senha: ')
-const senha = await rlSenha.question('')
-stdout.write('\n')
-rlSenha.close()
+const MENSAGENS_LOGIN = {
+    'auth/invalid-credential': 'E-mail ou senha incorretos.',
+    'auth/invalid-email': 'E-mail inválido.',
+    'auth/user-disabled': 'Esta conta está desativada no Firebase.',
+    'auth/too-many-requests': 'Muitas tentativas. Aguarde alguns minutos e tente de novo.',
+    'auth/network-request-failed': 'Sem conexão com o servidor de login.',
+}
+let credencial
+try { credencial = await signInWithEmailAndPassword(auth, email, senha) } catch (e) { sair(MENSAGENS_LOGIN[e.code] ?? `Falha no login (${e.code ?? e.message}).`) }
+const usuario = credencial.user.email
+const quem = `${IMPORTACAO}${usuario}`
 
-const credencial = await signInWithEmailAndPassword(auth, email, senha)
-const quem = `importação:${credencial.user.email}`
-console.log(`Conectado como ${credencial.user.email}. Lendo o que já existe no banco…`)
+const semPermissao = `O banco recusou ${usuario}. Confira, nesta ordem: (1) existe o documento papaEquipe/${usuario.toLowerCase()} no Firestore ` +
+    '(o id é o e-mail, todo em minúsculas); (2) as regras deste projeto foram publicadas (`npm run regras`, a partir desta pasta).'
+try {
+    const equipe = await getDoc(doc(db, 'papaEquipe', usuario.toLowerCase()))
+    if (!equipe.exists()) sair(semPermissao)
+} catch (e) {
+    sair(e.code === 'permission-denied' ? semPermissao : `Falha ao consultar o banco: ${e.message}`)
+}
+console.log(`Conectado como ${usuario}. Lendo o que já existe no banco…`)
 
 const existentes = async colecao => {
     const snap = await getDocs(collection(db, colecao))
     return snap.docs.map(d => ({ id: d.id, ...d.data() }))
 }
-const clientesNoBanco = await existentes('papaClientes')
-const processosNoBanco = await existentes('papaProcessos')
-const porChave = (lista, chave) => new Map(lista.map(x => [chave(x), x]))
-const clientePorNome = porChave(clientesNoBanco, c => normalizar(c.nome))
-const processoPorNumero = porChave(processosNoBanco, p => chaveNumero(p.numero))
-const clientePorId = new Map(clientesNoBanco.map(c => [c.id, c]))
-const processoPorId = new Map(processosNoBanco.map(p => [p.id, p]))
-console.log(`  ${clientesNoBanco.length} clientes e ${processosNoBanco.length} processos já no banco. Enviando ${base.clientes.length} clientes e ${base.processos.length} processos da planilha…`)
+let clientesNoBanco, processosNoBanco
+try {
+    clientesNoBanco = await existentes('papaClientes')
+    processosNoBanco = await existentes('papaProcessos')
+} catch (e) {
+    sair(e.code === 'permission-denied' ? semPermissao : `Falha ao ler o banco: ${e.message}`)
+}
+console.log(`  ${clientesNoBanco.length} clientes e ${processosNoBanco.length} processos já no banco.\n`)
 
-// Lotes de até 500 escritas (limite do Firestore).
-let lote = writeBatch(db), noLote = 0
-const resumo = { novos: 0, atualizados: 0, pulados: 0, forcados: 0 }
-const pulados = []
-const commit = async () => { if (noLote) { await lote.commit(); lote = writeBatch(db); noLote = 0 } }
-const escrever = async (colecao, id, dados, anterior) => {
-    if (anterior) lote.set(doc(collection(doc(db, colecao, id), 'historico')), { ...anterior, id: undefined, arquivadoEm: serverTimestamp(), arquivadoPor: quem })
-    lote.set(doc(db, colecao, id), { ...JSON.parse(JSON.stringify(dados)), versao: (anterior?.versao ?? 0) + 1, atualizadoEm: serverTimestamp(), atualizadoPor: quem })
-    noLote += anterior ? 2 : 1
+// ── plano ──
+const plano = planejarImportacao(base, { clientesNoBanco, processosNoBanco, forcar })
+const invalidos = plano.escritas.flatMap(e => validarRegistro(e.colecao, e.dados).map(erro => `${e.colecao}/${e.id}: ${erro}`))
+if (invalidos.length)
+    sair(`${invalidos.length} documento(s) seriam recusados pelas regras do banco — nada foi gravado. Corrija na planilha e gere o JSON de novo:\n  - ${invalidos.join('\n  - ')}`)
+
+const r = plano.resumo
+console.log(`Plano: ${r.novos} novos · ${r.atualizados} atualizados · ${r.inalterados} inalterados (não serão regravados) · ${r.forcados} sobrescritos com --forcar · ${r.pulados} pulados (editados pela tela)`)
+if (plano.pulados.length) console.log(`  Pulados (use --forcar para sobrescrever; o estado anterior vai para historico/):\n   ${plano.pulados.map(p => `${p.colecao}/${p.id} (${p.atualizadoPor})`).join('\n   ')}`)
+if (plano.avisos.length) console.log(`  Avisos:\n   ⚠ ${plano.avisos.join('\n   ⚠ ')}`)
+if (!plano.escritas.length) { console.log('\nNada a gravar: o banco já está igual à planilha.'); process.exit(0) }
+
+const confirmacao = await perguntar(`\nGravar ${plano.escritas.length} documento(s) em pagamento-255fc como ${quem}? Digite SIM para continuar: `)
+if (confirmacao !== 'SIM') sair('Cancelado. Nada foi gravado.', 0)
+
+// ── gravação em lotes de até 500 escritas (limite do Firestore); cada lote é tudo-ou-nada ──
+let lote = writeBatch(db), noLote = 0, idsDoLote = []
+let gravados = 0
+const commit = async () => {
+    if (!noLote) return
+    try {
+        await lote.commit()
+    } catch (e) {
+        sair(`O banco recusou um lote com ${idsDoLote.length} documento(s) (${e.code ?? e.message}). Já haviam sido gravados ${gravados} documentos; os deste lote não:\n   ${idsDoLote.join('\n   ')}\n` +
+            (e.code === 'permission-denied' ? '  permission-denied depois da validação local costuma ser papaEquipe/regras (veja acima) ou regra publicada diferente de firestore.rules.' : ''))
+    }
+    gravados += idsDoLote.length
+    lote = writeBatch(db); noLote = 0; idsDoLote = []
+}
+for (const e of plano.escritas) {
+    const ref = doc(db, e.colecao, e.id)
+    if (e.anterior) {
+        lote.set(doc(collection(ref, 'historico')), { ...paraHistorico(e.anterior), arquivadoEm: serverTimestamp(), arquivadoPor: quem })
+        noLote++
+    }
+    lote.set(ref, { ...e.dados, versao: (e.anterior?.versao ?? 0) + 1, atualizadoEm: serverTimestamp(), atualizadoPor: quem })
+    noLote++
+    idsDoLote.push(`${e.colecao}/${e.id}`)
     if (noLote >= 440) await commit()
 }
-const gravar = async (colecao, registro, achar) => {
-    const { id, ...dados } = registro
-    const existente = achar(registro)
-    if (!existente) { await escrever(colecao, id, dados); resumo.novos++; return }
-    const editadoNoPainel = existente.atualizadoPor && !String(existente.atualizadoPor).startsWith('importação:')
-    if (editadoNoPainel && !forcar) { resumo.pulados++; pulados.push(`${colecao}/${existente.id} (${existente.atualizadoPor})`); return }
-    // O id do banco prevalece (quem corrigiu um nº no painel não ganha cópia); campos da planilha sobrescrevem os do banco.
-    const { id: _i, atualizadoEm: _a, atualizadoPor: _p, versao: _v, ...anteriorSemMeta } = existente
-    await escrever(colecao, existente.id, { ...anteriorSemMeta, ...dados }, existente)
-    if (editadoNoPainel) resumo.forcados++
-    else resumo.atualizados++
-}
-for (const c of base.clientes) await gravar('papaClientes', c, x => clientePorId.get(x.id) ?? clientePorNome.get(normalizar(x.nome)))
-for (const p of base.processos) {
-    // Processo cujo cliente já existia com outro id (nome corrigido no painel) aponta para o id do banco.
-    const dono = clientePorId.get(p.clienteId) ?? clientePorNome.get(normalizar(base.clientes.find(c => c.id === p.clienteId)?.nome ?? ''))
-    await gravar('papaProcessos', dono ? { ...p, clienteId: dono.id } : p, x => processoPorId.get(x.id) ?? processoPorNumero.get(chaveNumero(x.numero)))
-}
 await commit()
-console.log(`✔ novos: ${resumo.novos} · atualizados: ${resumo.atualizados} · sobrescritos com --forcar: ${resumo.forcados} · pulados (editados no painel): ${resumo.pulados}`)
-if (pulados.length) console.log('  Pulados (use --forcar para sobrescrever; o estado anterior vai para historico/):\n   ' + pulados.join('\n   '))
-if (base.avisos?.length) console.log(`  ${base.avisos.length} avisos da planilha continuam valendo (veja o JSON).`)
+console.log(`\n✔ ${gravados} documento(s) gravados: ${r.novos} novos · ${r.atualizados} atualizados · ${r.forcados} sobrescritos com --forcar. ${r.pulados} pulados, ${r.inalterados} já estavam iguais.`)
 process.exit(0)

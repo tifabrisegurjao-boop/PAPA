@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Save, X } from 'lucide-react'
 import { erroNomeCliente } from '../lib/validacao.ts'
 import { idCliente, idLivre } from '../lib/ids.ts'
+import { LIMITES, erroTamanho } from '../lib/limites.mjs'
 import type { Cliente, TipoPessoa } from '../tipos.ts'
 import { Area, Campo, Rotulo, Secao } from './Campos.tsx'
 
@@ -30,6 +31,11 @@ export default function FormularioCliente({ inicial, todosClientes, onSalvar, on
 
     function validar() {
         const e: Record<string, string> = {}
+        // Mesmos tetos das regras do banco (src/lib/limites.mjs): avisar aqui, não depois de um "sem permissão".
+        for (const [campo, valor] of Object.entries({ nome, numeroNexus, linkPasta, observacao })) {
+            const t = erroTamanho('papaClientes', campo, valor)
+            if (t) e[campo] = t
+        }
         const erroNome = erroNomeCliente(nome, inicial, todosClientes)
         if (erroNome) e.nome = erroNome
         if (!tipoPessoa) e.tipoPessoa = 'Escolha pessoa física ou jurídica.'
@@ -66,7 +72,7 @@ export default function FormularioCliente({ inicial, todosClientes, onSalvar, on
         <form onSubmit={enviar} className="space-y-4">
             <Secao titulo={inicial ? 'Dados do cliente' : 'Novo cliente'}>
                 <Campo rotulo="Nome do cliente" obrigatorio value={nome} onChange={e => setNome(e.target.value)} erro={erros.nome} autoFocus
-                    ajuda="Como vai aparecer no sistema. Grafia única." />
+                    maxLength={LIMITES.papaClientes.nome} ajuda="Como vai aparecer no sistema. Grafia única." />
                 <div>
                     <Rotulo obrigatorio>Pessoa física ou jurídica</Rotulo>
                     <div className="mt-1 flex gap-2">
@@ -81,10 +87,11 @@ export default function FormularioCliente({ inicial, todosClientes, onSalvar, on
                     {erros.tipoPessoa && <span className="mt-1 block text-xs text-rose-600">{erros.tipoPessoa}</span>}
                 </div>
                 <Campo rotulo="Nº do cliente (Nexus)" value={numeroNexus} onChange={e => setNumeroNexus(e.target.value)} erro={erros.numeroNexus}
-                    inputMode="numeric" placeholder="4821" ajuda="Opcional por enquanto: número da Biblioteca de Clientes do Nexus." />
+                    inputMode="numeric" placeholder="4821" maxLength={LIMITES.papaClientes.numeroNexus} ajuda="Opcional por enquanto: número da Biblioteca de Clientes do Nexus." />
                 <Campo rotulo="Link da pasta (OneDrive)" value={linkPasta} onChange={e => setLinkPasta(e.target.value)} erro={erros.linkPasta}
-                    placeholder="https://…" ajuda="Link de compartilhamento; caminho C:\ não abre para os outros." />
-                <Area rotulo="Observação" value={observacao} onChange={e => setObservacao(e.target.value)} className="md:col-span-2" />
+                    placeholder="https://…" maxLength={LIMITES.papaClientes.linkPasta} ajuda="Link de compartilhamento; caminho C:\ não abre para os outros." />
+                <Area rotulo="Observação" value={observacao} onChange={e => setObservacao(e.target.value)} className="md:col-span-2"
+                    maxLength={LIMITES.papaClientes.observacao} erro={erros.observacao} />
             </Secao>
             {falha && <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-700">{falha}</p>}
             <div className="flex flex-wrap items-center gap-3">

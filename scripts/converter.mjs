@@ -1,6 +1,8 @@
 // npm run dados -- caminho/da/planilha.xlsx [saida.json]
-// Lê a planilha do modelo v2 (abas Clientes, Processos e Listas — ver planilha/modelo.json) e grava o JSON
-// que o sistema carrega (dados/base.json — fora de public/, servida só no dev e na demo). Nada some: linha com problema entra no JSON e vira aviso.
+// Lê a planilha do modelo v2 (abas Clientes, Processos e Listas — ver planilha/modelo.json) e grava o JSON que
+// `npm run dados:firestore` envia ao banco. Nada some: linha com problema entra no JSON e vira aviso.
+// Saída padrão: dados/real/base.json — pasta IGNORADA pelo git, porque o repositório é público e a planilha é real.
+// dados/base.json (rastreado) é só a base fictícia da demo: para regerá-la, passe o caminho explicitamente (ver `dados:exemplo`).
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -9,7 +11,7 @@ import XLSX from 'xlsx'
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const MODELO = JSON.parse(readFileSync(resolve(RAIZ, 'planilha/modelo.json'), 'utf8'))
 
-const [origem, saida = 'dados/base.json'] = process.argv.slice(2)
+const [origem, saida = 'dados/real/base.json'] = process.argv.slice(2)
 if (!origem) {
     console.error('Uso: npm run dados -- planilha.xlsx [saida.json]')
     process.exit(1)
@@ -179,4 +181,5 @@ const destino = resolve(RAIZ, saida)
 mkdirSync(dirname(destino), { recursive: true })
 writeFileSync(destino, JSON.stringify(base, null, 2) + '\n')
 console.log(`✔ ${saida}: ${clientes.length} clientes, ${processos.length} processos, ${avisos.length} avisos`)
+if (saida === 'dados/real/base.json') console.log('  Para enviar ao banco: npm run dados:firestore -- dados/real/base.json')
 for (const a of avisos) console.log('  ⚠ ' + a)

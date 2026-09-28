@@ -62,14 +62,15 @@ export function Selecao({ rotulo, obrigatorio, erro, ajuda, opcoes, vazio = '—
 interface AreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
     rotulo: string
     ajuda?: string
+    erro?: string
 }
 
-export function Area({ rotulo, ajuda, className = '', ...props }: AreaProps) {
+export function Area({ rotulo, ajuda, erro, className = '', ...props }: AreaProps) {
     return (
         <label className={`block ${className}`}>
             <Rotulo>{rotulo}</Rotulo>
-            <textarea className={`${BASE} min-h-[5rem] leading-relaxed`} {...props} />
-            {ajuda && <span className="mt-1 block text-xs text-slate-500">{ajuda}</span>}
+            <textarea className={`${BASE} min-h-[5rem] leading-relaxed ${erro ? 'border-rose-400' : ''}`} aria-invalid={!!erro} {...props} />
+            {erro ? <span className="mt-1 block text-xs text-rose-600">{erro}</span> : ajuda ? <span className="mt-1 block text-xs text-slate-500">{ajuda}</span> : null}
         </label>
     )
 }

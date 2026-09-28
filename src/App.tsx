@@ -17,8 +17,9 @@ type Autenticacao = typeof import('./lib/autenticacao.ts')
 // nunca publicar essa versão com dado real.
 const DEMO = import.meta.env.VITE_DEMO === '1'
 const SEM_LOGIN = DEMO || (import.meta.env.DEV && new URLSearchParams(window.location.search).has('semLogin'))
-// Banco: Firestore por padrão; JSON estático na demo, sem login, ou com VITE_BANCO=json (ver README).
-const BANCO_JSON = DEMO || SEM_LOGIN || import.meta.env.VITE_BANCO === 'json'
+// Banco: Firestore por padrão; JSON estático na demo, sem login, ou — só no `npm run dev` — com VITE_BANCO=json (ver README).
+// No build de produção não existe base em JSON, então essa opção não pode chegar lá.
+const BANCO_JSON = DEMO || SEM_LOGIN || (import.meta.env.DEV && import.meta.env.VITE_BANCO === 'json')
 
 // Rotas por hash (#/, #/cliente/<id> e #/cliente/<id>/<processo>): funcionam em hospedagem estática sem configurar o servidor.
 function useRota(): Rota {
@@ -52,18 +53,22 @@ export default function App() {
         let parar = () => {}
         import('./lib/autenticacao.ts')
             .then(m => { setAutenticacao(m); parar = m.observar(setSessao) })
-            .catch((e: Error) => setErro(`Não foi possível carregar o login: ${e.message}`))
+            .catch((e: Error) => setErro(`Não foi possível carregar o login (${e.message}). Recarregue a página com Ctrl+F5; se persistir, desative bloqueadores de conteúdo para este site.`))
         return () => parar()
     }, [])
 
     useEffect(() => {
         if (BANCO_JSON) return
-        import('./lib/repositorioFirestore.ts').then(m => setRepositorio(m.repositorioFirestore())).catch((e: Error) => setErro(`Não foi possível carregar o banco: ${e.message}`))
+        import('./lib/repositorioFirestore.ts').then(m => setRepositorio(m.repositorioFirestore()))
+            .catch((e: Error) => setErro(`Não foi possível carregar o banco (${e.message}). Recarregue a página com Ctrl+F5; se persistir, desative bloqueadores de conteúdo para este site.`))
     }, [])
 
     useEffect(() => {
         if (!sessao || !repositorio) return
-        return repositorio.assinar(setBase, (e: Error) => setErro(e.message))
+        // O aviso de erro não fica preso: some ao entrar de novo e assim que uma base chega (corrigiu papaEquipe/regras, voltou a conexão).
+        setErro('')
+        const parar = repositorio.assinar(b => { setErro(''); setBase(b) }, (e: Error) => setErro(e.message))
+        return () => { parar(); setBase(null) }
     }, [sessao, repositorio])
 
     const cliente = rota.tela === 'cliente' ? base?.clientes.find(c => c.id === rota.clienteId) : undefined
@@ -118,7 +123,8 @@ export default function App() {
     return (
         <div className="flex min-h-screen flex-col bg-fg-50 text-slate-800">
             <Cabecalho subtitulo={cliente && `Cliente: ${cliente.nome}`} termo={termo} onPesquisar={pesquisar} email={sessao.email}
-                semLogin={SEM_LOGIN ? (DEMO ? 'demonstração' : 'sem login') : undefined} onSair={autenticacao?.sair} />
+                semLogin={SEM_LOGIN ? (DEMO ? 'demonstração' : 'sem login') : undefined}
+                onSair={autenticacao ? async () => { setTermo(''); await autenticacao.sair() } : undefined} />
             <main className="mx-auto w-full max-w-7xl flex-1 p-4 md:p-8">{conteudo}</main>
             {base && (
                 <footer className="px-4 pb-4 text-center text-xs text-slate-500">
