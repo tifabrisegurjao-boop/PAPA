@@ -1,12 +1,13 @@
 import { FirebaseError } from 'firebase/app'
 import { collection, doc, getFirestore, onSnapshot, runTransaction, serverTimestamp, type DocumentData, type QuerySnapshot } from 'firebase/firestore'
 import { app, auth } from './firebase.ts'
+import { PROJETO } from './firebaseConfig.mjs'
 import type { Cliente, Processo } from '../tipos.ts'
 import type { Repositorio } from './repositorio.ts'
 
-// Coleções próprias do PAPA dentro do projeto do Nexus (`pagamento-255fc`). Prefixo "papa" para não
-// confundir com `clients`/`cases` do Nexus. As regras do Firestore (firestore.rules neste projeto; publicar com
-// `npm run regras` DESTA pasta — ver README) só liberam quem está na coleção `papaEquipe`.
+// Coleções do PAPA no projeto próprio (`papa-85025`). O prefixo "papa" ficou de quando o plano era morar dentro do
+// projeto do Nexus; manter os nomes evita migrar dado. As regras (firestore.rules; publicar com `npm run regras` —
+// ver README) só liberam quem está na coleção `papaEquipe`.
 export const COLECAO_CLIENTES = 'papaClientes'
 export const COLECAO_PROCESSOS = 'papaProcessos'
 
@@ -19,7 +20,7 @@ const SEM_CONEXAO = 'Sem conexão com o banco (firestore.googleapis.com). Verifi
 function explicarPermissao(acao: 'ler' | 'gravar'): string {
     const email = auth.currentUser?.email ?? null
     return `Sem permissão para ${acao === 'ler' ? 'ler o banco' : 'gravar no banco'} como ${email ?? 'usuário sem e-mail'}. Confira, nesta ordem: ` +
-        `(1) existe o documento papaEquipe/${email?.toLowerCase() ?? '<e-mail>'} no Firestore do projeto pagamento-255fc (o id é o e-mail, todo em minúsculas); ` +
+        `(1) existe o documento papaEquipe/${email?.toLowerCase() ?? '<e-mail>'} no Firestore do projeto ${PROJETO} (o id é o e-mail, todo em minúsculas); ` +
         '(2) as regras deste projeto foram publicadas (npm run regras, a partir da pasta do PAPA)' +
         (acao === 'gravar' ? '; (3) nenhum campo passou do tamanho permitido' : '') +
         '. Depois de corrigir, recarregue a página.'
@@ -36,7 +37,7 @@ const traduzir = (e: unknown, acao: 'ler' | 'gravar'): Error => {
 
 export function repositorioFirestore(): Repositorio {
     return {
-        nome: 'Firestore (pagamento-255fc)',
+        nome: `Firestore (${PROJETO})`,
         persistente: true,
         assinar(aoMudar, aoFalhar) {
             let clientes: Cliente[] | null = null

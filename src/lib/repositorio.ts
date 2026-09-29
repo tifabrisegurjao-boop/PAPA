@@ -7,7 +7,7 @@ import type { Base, Cliente, Processo } from '../tipos.ts'
  * A interface é a mesma, então as telas não sabem qual está por trás.
  */
 export interface Repositorio {
-    /** Como aparece no rodapé, ex.: "Firestore (pagamento-255fc)". */
+    /** Como aparece no rodapé, ex.: "Firestore (papa-85025)". */
     nome: string
     /** false = as edições não são gravadas em lugar nenhum além desta aba. */
     persistente: boolean

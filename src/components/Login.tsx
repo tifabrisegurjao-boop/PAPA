@@ -54,7 +54,7 @@ export default function Login({ entrar }: Props) {
                     className="flex w-full items-center justify-center gap-2 rounded-md bg-fg-700 py-2.5 font-semibold text-white hover:bg-fg-800 disabled:opacity-60">
                     <Lock size={16} /> {enviando ? 'Entrando…' : 'Entrar'}
                 </button>
-                <p className="text-center text-xs text-slate-500">Mesmo acesso do Nexus.</p>
+                <p className="text-center text-xs text-slate-500">Acesso próprio do PAPA (não é o login do Nexus). Sem conta? Fale com o responsável.</p>
             </form>
         </div>
     )

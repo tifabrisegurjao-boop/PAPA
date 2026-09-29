@@ -1,7 +1,7 @@
 // npm run dados:firestore -- caminho/do/arquivo.json [--forcar]
 // Envia a base gerada da planilha REAL (`npm run dados -- planilha.xlsx` → dados/real/base.json) para o Firestore do projeto
-// pagamento-255fc — o banco que o painel lê e edita. Usa o SDK web do Firebase e o login de alguém da equipe (pede e-mail
-// e senha no terminal; a senha não fica em lugar nenhum).
+// próprio do PAPA (src/lib/firebaseConfig.mjs) — o banco que o painel lê e edita. Usa o SDK web do Firebase e o login de
+// alguém da equipe (pede e-mail e senha no terminal; a senha não fica em lugar nenhum).
 //
 // O que este script garante (as regras em si estão em scripts/lib/importacao.mjs, testadas):
 //   - recusa base de demonstração (dados/base.json é fictícia e não tem como ser apagada pelo sistema depois);
@@ -17,6 +17,7 @@ import { initializeApp } from 'firebase/app'
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
 import { collection, doc, getDoc, getDocs, getFirestore, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { IMPORTACAO, conferirBase, paraHistorico, planejarImportacao, validarRegistro } from './lib/importacao.mjs'
+import { FIREBASE_CONFIG, PROJETO } from '../src/lib/firebaseConfig.mjs'
 
 const args = process.argv.slice(2)
 const forcar = args.includes('--forcar')
@@ -46,18 +47,14 @@ const perguntarEm = async (rl, pergunta) => {
     try { return (await rl.question(pergunta)).trim() } catch (e) { if (e?.name === 'AbortError') cancelar(); throw e } finally { rl.close() }
 }
 const perguntar = pergunta => perguntarEm(createInterface({ input: stdin, output: stdout }), pergunta)
-const email = await perguntar('E-mail (usuário do Nexus): ')
+const email = await perguntar(`E-mail (conta do PAPA no projeto ${PROJETO}): `)
 // Senha sem eco: a interface escreve num stream mudo enquanto lê (a interface anterior já foi fechada — duas no mesmo stdin ecoariam).
 const mudo = new Writable({ write(_c, _e, cb) { cb() } })
 stdout.write('Senha: ')
 const senha = await perguntarEm(createInterface({ input: stdin, output: mudo, terminal: true }), '')
 stdout.write('\n')
 
-const app = initializeApp({
-    apiKey: 'AIzaSyB-RBsirfY1v0Db9BtzKhix37mObE0mfyw',
-    authDomain: 'pagamento-255fc.firebaseapp.com',
-    projectId: 'pagamento-255fc',
-})
+const app = initializeApp(FIREBASE_CONFIG)
 const auth = getAuth(app)
 const db = getFirestore(app)
 
@@ -111,7 +108,7 @@ if (plano.pulados.length) console.log(`  Pulados (use --forcar para sobrescrever
 if (plano.avisos.length) console.log(`  Avisos:\n   ⚠ ${plano.avisos.join('\n   ⚠ ')}`)
 if (!plano.escritas.length) { console.log('\nNada a gravar: o banco já está igual à planilha.'); process.exit(0) }
 
-const confirmacao = await perguntar(`\nGravar ${plano.escritas.length} documento(s) em pagamento-255fc como ${quem}? Digite SIM para continuar: `)
+const confirmacao = await perguntar(`\nGravar ${plano.escritas.length} documento(s) em ${PROJETO} como ${quem}? Digite SIM para continuar: `)
 if (confirmacao !== 'SIM') sair('Cancelado. Nada foi gravado.', 0)
 
 // ── gravação em lotes de até 500 escritas (limite do Firestore); cada lote é tudo-ou-nada ──

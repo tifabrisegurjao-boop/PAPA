@@ -7,12 +7,12 @@ Origem: *Relatório de Evolução do Projeto e Definição do MVP*, de 10/09/202
 
 ## Como funciona (desde 14/09/2026: o painel é o banco)
 ```
-planilha v2 ──npm run dados──▶ dados/real/base.json ──npm run dados:firestore──▶ Firestore (pagamento-255fc) ◀──▶ painel (lê em tempo real, edita com lápis)
+planilha v2 ──npm run dados──▶ dados/real/base.json ──npm run dados:firestore──▶ Firestore (papa-85025) ◀──▶ painel (lê em tempo real, edita com lápis)
                               (fora do git)                                       papaClientes / papaProcessos      "Cadastrar cliente", "Novo processo"
 demo (build:demo) ──▶ dados/base.json (fictícia) em memória: edições ficam só na aba
 ```
 O navegador não consegue gravar dentro do arquivo do OneDrive, então a decisão (painel de 3 arquiteturas, 14/09/2026 — ver nota no vault) foi
-inverter: **o painel vira o cofre** (Firestore, mesmo projeto e login do Nexus) e **a planilha é entrada e saída** dele. `src/lib/repositorio.ts`
+inverter: **o painel vira o cofre** (Firestore, projeto próprio `papa-85025` desde 29/09/2026) e **a planilha é entrada e saída** dele. `src/lib/repositorio.ts`
 define a interface; `repositorioFirestore.ts` grava em transação com `versao` (recusa sobrescrever o que outra pessoa salvou) e guarda o estado
 anterior em `historico/`; `repositorioMemoria` (demo/`?semLogin`) guarda só na aba.
 
@@ -23,7 +23,7 @@ anterior em `historico/`; `repositorioMemoria` (demo/`?semLogin`) guarda só na 
 | Local | Projeto separado | Isola o provisório da suíte em produção |
 | Stack | React + TypeScript + Vite + Tailwind | Mesma do Nexus: a integração futura é copiar a pasta e adicionar uma entrada no `vite.config.ts` |
 | Dados | Planilha v2 → JSON (`npm run dados`) → Firestore (`npm run dados:firestore`) | Modelo em `planilha/modelo.json`, único lugar que define colunas e menus; tetos de tamanho em `src/lib/limites.mjs`, iguais aos de `firestore.rules` |
-| Login | Firebase Auth do Nexus (`pagamento-255fc`) | Mesmo acesso da equipe e sistema nascendo protegido |
+| Login e banco | Projeto Firebase próprio `papa-85025` (29/09/2026; antes: dentro do projeto do Nexus, `pagamento-255fc`) | Isolamento: regras e cargas do PAPA não arriscam o Nexus nem o Financeiro, e a cota gratuita é só dele. Custo aceito: conta separada por pessoa |
 | Nº do cliente | Coluna opcional na planilha; o sistema **ainda não** usa | Ligação com o Nexus prevista para depois. A busca já normaliza nomes com a mesma regra do Nexus; a reimportação já casa cliente por esse nº |
 | Rotas | Hash (`#/`, `#/cliente/<id>`) | Funciona em hospedagem estática sem configurar o servidor |
 | Datas | `AAAA-MM-DD[THH:mm]` sem fuso, formatadas pelo texto | Evita deslocar dia/hora num navegador fora de Porto Velho |
@@ -40,29 +40,29 @@ anterior em `historico/`; `repositorioMemoria` (demo/`?semLogin`) guarda só na 
 Baseada nos arquivos de marca do escritório (logotipo, mockups, papel de parede): petróleo `#173a4c` (escala `fg-*`) e ouro-areia `#d1cda9` (`ouro-*`), medidos nos pixels do logotipo; Roboto Slab para títulos (a slab serif mais próxima do wordmark) e Inter para texto (mesma da Legal Suite), via Google Fonts. Assets em `public/brand/`: `monograma.png`, `logo.png`, `favicon.png`, `fundo-login.jpg`. A Legal Suite usa navy `#08162e` / ouro `#c5a059` (`ouro-500` aqui) — unificar na integração.
 
 ## Banco (Firestore) — ativação em produção, passo a passo
-Tudo abaixo acontece no projeto **`pagamento-255fc`** (o do Nexus): o PAPA usa o mesmo login e coleções próprias (`papaEquipe`, `papaClientes`, `papaProcessos`). Quem faz é quem tem acesso ao Console do Firebase com uma conta **Owner/Editor** do projeto.
+Desde 29/09/2026 o PAPA tem **projeto Firebase próprio: `papa-85025`** ("PAPA" no Console; configuração em `src/lib/firebaseConfig.mjs`, onde o app web "Projeto PAPA" já está registrado). Até 28/09 o plano era morar dentro do projeto do Nexus (`pagamento-255fc`), com o mesmo login. A troca isola o sistema: publicar regras ou carregar a planilha nunca mexe no Nexus nem no Financeiro, e a cota gratuita diária é só do PAPA. O custo: **cada pessoa precisa de uma conta própria no PAPA** (e-mail e senha criados no Console — não é o login do Nexus). Quem faz os passos abaixo precisa ser **Owner/Editor** do projeto.
 
-**Pré-requisitos no computador** (uma vez): Node.js LTS instalado pelo instalador de [nodejs.org](https://nodejs.org) (marque a opção de adicionar ao PATH; depois **feche e abra o terminal**) — confira com `node -v` e `npm -v`; nesta pasta, `npm install`. O `firebase` de linha de comando não precisa de instalação: os scripts usam `npx firebase-tools`.
+**Pré-requisitos no computador** (uma vez): Node.js LTS instalado pelo instalador de [nodejs.org](https://nodejs.org) (marque a opção de adicionar ao PATH; depois **feche e abra o terminal** — no terminal de dentro do app do Claude, feche e abra o app) — confira com `node -v`; nesta pasta, `npm install`. O `firebase` de linha de comando vem por `npx firebase-tools` (o `.npmrc` do projeto fixa o registro oficial do npm). Para ver quem está conectado: `npx firebase-tools login:list`; só se ninguém com acesso ao `papa-85025` aparecer, `npm run firebase:login`.
 
-1. **Banco existe?** Console › Firestore Database. O Nexus já usa Firestore neste projeto, então normalmente já existe. Se aparecer "Criar banco de dados": modo **produção** e região `southamerica-east1` (São Paulo). Anote a região no inventário LGPD.
-2. **Equipe:** Firestore › coleção **`papaEquipe`** › um documento por pessoa com **id = e-mail de login, todo em minúsculas, sem espaços** (copie da coluna *Identifier* em Authentication › Users); conteúdo: um campo `nome`. Só quem está nessa lista lê e grava o PAPA — estar logado não basta, porque a apiKey é pública. Errou uma letra no id? A pessoa vê "Sem permissão para ler o banco como fulano@…" com o id exato que falta.
-3. **Cadastro fechado:** Authentication › **Settings › User actions**: desmarque **Enable create (sign-up)** e deixe **Email enumeration protection** ligada. (Não mexa em *Sign-in method*: desligar o provedor E-mail/senha derruba o login de todo mundo, inclusive no Nexus.) Contas novas são criadas pelo Console (Users › Add user).
-4. **Regras:** antes, abra Console › Firestore › **Rules** e confira o que está publicado hoje — se houver algo além de `clients`/`cases` liberados para `request.auth != null`, traga para `firestore.rules` (a publicação **substitui** tudo; o Console guarda o histórico de versões para voltar). Então, **desta pasta** (nunca da Fabris-Gurjao, cujo `firebase.json` aponta para as regras do Financeiro):
+1. **Criar o banco:** Console › projeto **PAPA** › Build › **Firestore Database** › *Create database* → edição Standard, local **`southamerica-east1` (São Paulo)** — não dá para mudar depois — e **modo de produção**. Anote a região no inventário LGPD.
+2. **Ligar o login:** Build › **Authentication** › *Get started* › *Sign-in method* › **Email/Password** › ative só a primeira opção (não "Email link") › *Save*. Em **Users › Add user**, crie a conta de cada pessoa (e-mail + senha provisória).
+3. **Cadastro fechado:** Authentication › **Settings › User actions**: desmarque **Enable create (sign-up)** e deixe **Email enumeration protection** ligada. Contas novas só pelo Console.
+4. **Equipe:** Firestore › *Start collection* **`papaEquipe`** › um documento por pessoa com **id = e-mail de login, todo em minúsculas, sem espaços** (copie da coluna *Identifier* em Authentication › Users); conteúdo: um campo `nome`. Só quem está nessa lista lê e grava — ter conta não basta, porque a apiKey é pública. Errou uma letra no id? A pessoa vê "Sem permissão para ler o banco como fulano@…" com o id exato que falta.
+5. **Regras:**
    ```bash
-   npm run firebase:login     # só na 1ª vez: abre o navegador; entre com a conta que tem o projeto
-   npm run regras             # = npx firebase-tools deploy --only firestore:rules --project pagamento-255fc
+   npm run regras             # = npx firebase-tools deploy --only firestore:rules --project papa-85025
    ```
-   `firestore.rules` mantém `clients`/`cases` do Nexus como estavam e acrescenta `papaEquipe`, `papaClientes`, `papaProcessos` (com `historico`): sem delete, campos e tamanhos validados (`src/lib/limites.mjs` é o espelho deles; `tests/importacao.test.ts` confere que batem). `Fabris-Gurjao/firestore.nexus.rules` é cópia — mantenha igual ou apague.
-5. **Teste de fumaça** (antes de qualquer dado real): `npm run dev` → `http://localhost:5173` → entrar com um e-mail da `papaEquipe`. Deve aparecer a lista **vazia** (sem "Sem permissão…"), o rodapé com `Base: Firestore (pagamento-255fc)`, e "Cadastrar cliente" deve gravar um cliente de teste que aparece no Console em `papaClientes` com `versao: 1` e `atualizadoPor` = seu e-mail. Um e-mail **fora** da `papaEquipe` deve ver a mensagem de permissão (não uma lista vazia).
-6. **Carga da planilha real:** a planilha (modelo v2) fica **fora desta pasta** (OneDrive do escritório); o JSON gerado vai para `dados/real/`, que o git ignora:
+   `firestore.rules` só tem o PAPA — `papaEquipe`, `papaClientes`, `papaProcessos` (com `historico`) —: sem delete, campos e tamanhos validados (`src/lib/limites.mjs` é o espelho deles; `tests/importacao.test.ts` confere que batem); todo o resto é negado. Os nomes com prefixo "papa" ficaram do plano antigo; mantê-los evita migrar dado.
+6. **Teste de fumaça** (antes de qualquer dado real): `npm run dev` → `http://localhost:5173` → entrar com uma conta da `papaEquipe`. Deve aparecer a lista **vazia** (sem "Sem permissão…"), o rodapé com `Base: Firestore (papa-85025)`, e "Cadastrar cliente" deve gravar um cliente de teste que aparece no Console em `papaClientes` com `versao: 1` e `atualizadoPor` = seu e-mail. Uma conta **fora** da `papaEquipe` deve ver a mensagem de permissão (não uma lista vazia).
+7. **Carga da planilha real:** a planilha (modelo v2) fica **fora desta pasta** (OneDrive do escritório); o JSON gerado vai para `dados/real/`, que o git ignora:
    ```bash
    npm run dados -- "C:\caminho\Controle_de_Processos.xlsx"      # gera dados/real/base.json e lista os avisos
    npm run dados:firestore -- dados/real/base.json                 # pede login, mostra o PLANO e só grava depois de você digitar SIM
    ```
    O importador recusa base de demonstração (`dados/base.json` é fictícia e, como nada é apagado pelo sistema, não pode entrar no banco real), valida cada documento contra os limites das regras **antes** de gravar (aponta id e campo), casa cliente por id → nº do Nexus → nome e processo por id/nº dentro do mesmo cliente, aponta o desdobramento para o id que o pai tem no banco, e **não regrava** o que já está igual. Regras em `scripts/lib/importacao.mjs` (testadas).
-7. **Reimportar depois** (planilha atualizada): mesmos dois comandos. A **linha da planilha é o registro**: célula apagada apaga o campo no banco. Registro **editado pela tela** é pulado com aviso — só é sobrescrito com `--forcar`, e aí o estado anterior vai para `historico/`. Linha que sumiu da planilha **continua no banco** (exclusão é pendência). Nome de cliente corrigido na planilha sem nº do Nexus vira cliente novo (o importador avisa "provável renomeação"): para renomear sem duplicar, corrija pela tela ou dê o mesmo nº do Nexus. Ninguém deve salvar pela tela enquanto a importação roda.
-8. **Se algo entrou errado:** o sistema não apaga nada; apagar é no Console (Firestore › documento › ⋮ › Delete, ou *Delete collection* para começar de novo). Toda gravação por cima guarda o anterior em `historico/` do próprio documento. Backup: o plano Spark não tem exportação automática — enquanto não houver rotina, a planilha continua sendo a cópia de segurança do que foi importado.
-9. **Domínios:** para login por e-mail/senha o Firebase **não** exige listar o domínio (Authorized domains só vale para Google/OAuth e link por e-mail). Se, no site publicado, o login falhar com `requests-from-referer-…-are-blocked`, é restrição de referrer da chave de API em Google Cloud › APIs e serviços › Credenciais — acrescente o domínio lá.
+8. **Reimportar depois** (planilha atualizada): mesmos dois comandos. A **linha da planilha é o registro**: célula apagada apaga o campo no banco. Registro **editado pela tela** é pulado com aviso — só é sobrescrito com `--forcar`, e aí o estado anterior vai para `historico/`. Linha que sumiu da planilha **continua no banco** (exclusão é pendência). Nome de cliente corrigido na planilha sem nº do Nexus vira cliente novo (o importador avisa "provável renomeação"): para renomear sem duplicar, corrija pela tela ou dê o mesmo nº do Nexus. Ninguém deve salvar pela tela enquanto a importação roda.
+9. **Se algo entrou errado:** o sistema não apaga nada; apagar é no Console (Firestore › documento › ⋮ › Delete, ou *Delete collection* para começar de novo). Toda gravação por cima guarda o anterior em `historico/` do próprio documento. Backup: o plano Spark não tem exportação automática — enquanto não houver rotina, a planilha continua sendo a cópia de segurança do que foi importado.
+10. **Domínios:** para login por e-mail/senha o Firebase **não** exige listar o domínio (Authorized domains só vale para Google/OAuth e link por e-mail). Se, no site publicado, o login falhar com `requests-from-referer-…-are-blocked`, é restrição de referrer da chave de API em Google Cloud › APIs e serviços › Credenciais — acrescente o domínio lá.
 
 ## Demo no GitHub Pages
 A demonstração pública (https://tifabrisegurjao-boop.github.io/PAPA/) vem do branch **`demo`** (congelado em 28/09/2026 como o MVP apresentado à chefia; tag `demo-mvp-v1`). `.github/workflows/pages.yml` dispara em push na `main` (ou à mão), faz **checkout do `demo`**, `build:demo` e publica — assim a `main` evolui para a produção sem mudar o que a chefia vê. Para atualizar a demo: leve a mudança ao `demo` (merge/cherry-pick) e `git push origin demo main`. O branch `demo` precisa existir no GitHub (o workflow avisa se não existir). **Em Settings › Pages › Build and deployment, a fonte tem de ser "GitHub Actions"** — em "Deploy from a branch" o GitHub publica o código-fonte cru por cima do build e a página fica só com "Carregando o Projeto PAPA…".
@@ -110,7 +110,7 @@ tests/                   regras.test.ts (telas) e importacao.test.ts (importaç�
 ## Como rodar
 ```bash
 npm install
-npm run dev      # http://localhost:5173 — entrar com usuário do Nexus que esteja na papaEquipe
+npm run dev      # http://localhost:5173 — entrar com uma conta do PAPA que esteja na papaEquipe
 npm test
 npm run build    # gera dist/ (produção: sem base em JSON; lê o Firestore)
 ```
