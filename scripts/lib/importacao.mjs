@@ -13,7 +13,9 @@
 //     id com cliente diferente (mudança de cliente, se a planilha não tem outra linha desse nº para o cliente antigo) → novo.
 //     Nº repetido para outro cliente vira registro separado (id com -2, -3…), nunca sobrescreve o do outro.
 //   - processoPaiId aponta para o id que o pai tem NO BANCO (remapeado), não para o slug da planilha.
-//   - Nada é apagado: linha que sumiu da planilha continua no banco (a exclusão lógica é pendência da tela).
+//   - Nada é apagado: linha que sumiu da planilha continua no banco (quem tira é a exclusão lógica da tela).
+//   - Registro EXCLUÍDO pela tela (na Lixeira) nunca é reimportado nem ressuscitado — nem com --forcar; processo novo de
+//     cliente que está na lixeira também não entra. Vira aviso: tire a linha da planilha ou restaure pela tela.
 import { CHAVES, LIMITES } from '../../src/lib/limites.mjs'
 
 export const normalizar = t => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -97,13 +99,14 @@ const MAX_NOMES_NO_AVISO = 15
 /**
  * Decide, sem gravar nada, o que a importação faria com o banco como está.
  * @returns {{ escritas: {colecao, id, dados, anterior, motivo: 'novo'|'atualizado'|'forcado'|'ordem'}[],
- *            pulados: {colecao, id, atualizadoPor}[], avisos: string[],
- *            resumo: {novos, atualizados, reordenados, inalterados, forcados, pulados}, novosClientes: string[] }}
+ *            pulados: {colecao, id, atualizadoPor}[], naLixeira: {colecao, id, excluidoPor}[], avisos: string[],
+ *            resumo: {novos, atualizados, reordenados, inalterados, forcados, pulados, excluidos}, novosClientes: string[] }}
  * `motivo: 'ordem'` = só a posição mudou: o script grava sem copiar para historico.
  */
 export function planejarImportacao(base, { clientesNoBanco = [], processosNoBanco = [], forcar = false } = {}) {
-    const escritas = [], pulados = [], avisos = [], novosClientes = []
-    const resumo = { novos: 0, atualizados: 0, reordenados: 0, inalterados: 0, forcados: 0, pulados: 0 }
+    const escritas = [], pulados = [], avisos = [], novosClientes = [], naLixeira = []
+    const resumo = { novos: 0, atualizados: 0, reordenados: 0, inalterados: 0, forcados: 0, pulados: 0, excluidos: 0 }
+    const clientesNaLixeira = new Set(clientesNoBanco.filter(c => c.excluidoEm).map(c => c.id))
     // Reimportação de verdade = já há registros que vieram de importação (um cliente de teste cadastrado pela tela não conta).
     const reimportacao = [...clientesNoBanco, ...processosNoBanco].some(veioDeImportacao)
 
@@ -111,6 +114,7 @@ export function planejarImportacao(base, { clientesNoBanco = [], processosNoBanc
     const decidir = (colecao, id, dados, existente) => {
         const limpo = JSON.parse(JSON.stringify(dados)) // tira undefined, como o gravador da tela
         if (!existente) { escritas.push({ colecao, id, dados: limpo, anterior: null, motivo: 'novo' }); resumo.novos++; return 'novo' }
+        if (existente.excluidoEm) { naLixeira.push({ colecao, id, excluidoPor: existente.excluidoPor }); resumo.excluidos++; return 'excluido' }
         const atual = semControle(existente)
         const { ordem: ordemAtual, ...conteudoAtual } = atual
         const { ordem: ordemNova, ...conteudoNovo } = limpo
@@ -204,6 +208,11 @@ export function planejarImportacao(base, { clientesNoBanco = [], processosNoBanc
     const movidos = [] // mudanças de cliente que serão gravadas de fato
     const ficaram = new Map() // cliente antigo → nºs que ficaram lá por terem sido editados na tela (pulados)
     for (const { p, idFinal, existente, clienteIdFinal, mudanca } of decisoes) {
+        if (!existente && clientesNaLixeira.has(clienteIdFinal)) {
+            avisos.push(`processo ${p.numero} é de cliente que está na lixeira ("${clientesNoBanco.find(c => c.id === clienteIdFinal)?.nome}") — não importado; restaure o cliente pela tela ou tire a linha da planilha`)
+            resumo.excluidos++
+            continue
+        }
         const { id: _id, ...dados } = p
         dados.clienteId = clienteIdFinal
         if (dados.processoPaiId && idProcessoFinal.has(dados.processoPaiId)) dados.processoPaiId = idProcessoFinal.get(dados.processoPaiId)
@@ -234,5 +243,5 @@ export function planejarImportacao(base, { clientesNoBanco = [], processosNoBanc
         avisos.push(`clientes novos nesta reimportação (confira se algum é grafia diferente de cliente já existente): ${lista}`)
     }
 
-    return { escritas, pulados, avisos, resumo, novosClientes }
+    return { escritas, pulados, avisos, resumo, novosClientes, naLixeira }
 }

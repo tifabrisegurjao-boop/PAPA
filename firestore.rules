@@ -29,6 +29,14 @@ service cloud.firestore {
         && d.versao is int && d.versao >= 1;
     }
 
+    // Exclusão lógica (a tela nunca apaga): `excluidoEm` e `excluidoPor` entram juntos, com o carimbo do servidor e o
+    // e-mail de quem excluiu; restaurar = gravar sem os dois. O documento continua no banco, com o historico.
+    function exclusao() {
+      let d = request.resource.data;
+      return (!('excluidoEm' in d) && !('excluidoPor' in d))
+        || (d.excluidoEm == request.time && d.excluidoPor == request.auth.token.email);
+    }
+
     function texto(campo, max) {
       return !(campo in request.resource.data) || (request.resource.data[campo] is string && request.resource.data[campo].size() <= max);
     }
@@ -40,8 +48,9 @@ service cloud.firestore {
 
     match /papaClientes/{clienteId} {
       allow read: if daEquipe();
-      allow create, update: if daEquipe() && assinado()
-        && request.resource.data.keys().hasOnly(['nome', 'tipoPessoa', 'numeroNexus', 'linkPasta', 'observacao', 'versao', 'ordem', 'atualizadoEm', 'atualizadoPor'])
+      allow create, update: if daEquipe() && assinado() && exclusao()
+        && request.resource.data.keys().hasOnly(['nome', 'tipoPessoa', 'numeroNexus', 'linkPasta', 'observacao', 'versao', 'ordem', 'atualizadoEm', 'atualizadoPor',
+             'excluidoEm', 'excluidoPor'])
         && request.resource.data.nome is string && request.resource.data.nome.size() > 0 && request.resource.data.nome.size() <= 200
         && (request.resource.data.tipoPessoa == null || request.resource.data.tipoPessoa in ['PF', 'PJ'])
         && texto('numeroNexus', 10) && texto('linkPasta', 2000) && texto('observacao', 5000);
@@ -55,10 +64,10 @@ service cloud.firestore {
 
     match /papaProcessos/{processoId} {
       allow read: if daEquipe();
-      allow create, update: if daEquipe() && assinado()
+      allow create, update: if daEquipe() && assinado() && exclusao()
         && request.resource.data.keys().hasOnly(['clienteId', 'numero', 'sistema', 'processoPaiId', 'vinculo', 'orgaoSigla', 'orgaoNome', 'tipo', 'natureza',
              'objeto', 'status', 'situacaoAtual', 'observacao', 'ultimaMovimentacao', 'linkProcesso', 'codigoCasoNexus', 'acesso', 'versao', 'ordem',
-             'atualizadoEm', 'atualizadoPor'])
+             'atualizadoEm', 'atualizadoPor', 'excluidoEm', 'excluidoPor'])
         && request.resource.data.clienteId is string && request.resource.data.clienteId.size() > 0
         && request.resource.data.numero is string && request.resource.data.numero.size() > 0 && request.resource.data.numero.size() <= 100
         && (!('vinculo' in request.resource.data) || request.resource.data.vinculo in ['derivado', 'relacionado'])

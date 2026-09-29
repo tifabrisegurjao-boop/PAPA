@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { AlertTriangle, ChevronLeft, ChevronRight, FileText, Lock, UserPlus } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, FileText, Lock, RotateCcw, Trash2, UserPlus } from 'lucide-react'
 import { semAcesso } from '../lib/acesso.ts'
 import { buscarProcessos, filtrarClientes } from '../lib/busca.ts'
+import { bloqueioRestaurarCliente, bloqueioRestaurarProcesso, type Lixeira } from '../lib/exclusao.ts'
+import { formatarDataHora } from '../lib/formatacao.ts'
 import { paginar } from '../lib/paginacao.ts'
 import type { Base, Cliente, Processo, TipoPessoa } from '../tipos.ts'
 import FormularioCliente from './FormularioCliente.tsx'
@@ -11,13 +13,18 @@ const MAX_PROCESSOS_LISTADOS = 40
 interface Resumo { total: number; expirados: number }
 
 interface Props {
+    /** Só o que está ativo (os excluídos ficam em `lixeira`). */
     base: Base
+    lixeira: Lixeira
+    /** Todos os ids de cliente do banco, inclusive os da lixeira (o cadastro novo não pode reusar um). */
+    idsClientes: string[]
     termo: string
     onSalvarCliente: (cliente: Cliente) => Promise<void>
+    onRestaurar: (tipo: 'cliente' | 'processo', registro: Cliente | Processo) => Promise<void>
 }
 
 // Tela 1 — inspirada no Controle de Processos do SEI: as colunas "recebidos/gerados" viram Pessoa física/jurídica.
-export default function ListaClientes({ base, termo, onSalvarCliente }: Props) {
+export default function ListaClientes({ base, lixeira, idsClientes, termo, onSalvarCliente, onRestaurar }: Props) {
     const [cadastrando, setCadastrando] = useState(false)
     const hoje = new Date()
     const resumo = new Map<string, Resumo>()
@@ -57,7 +64,7 @@ export default function ListaClientes({ base, termo, onSalvarCliente }: Props) {
 
             {cadastrando && (
                 <section className="mb-6 rounded-xl border border-ouro-300 bg-white p-5 shadow-sm">
-                    <FormularioCliente todosClientes={base.clientes} onSalvar={cadastrar} onCancelar={() => setCadastrando(false)} />
+                    <FormularioCliente todosClientes={base.clientes} idsUsados={idsClientes} onSalvar={cadastrar} onCancelar={() => setCadastrando(false)} />
                 </section>
             )}
 
@@ -85,7 +92,73 @@ export default function ListaClientes({ base, termo, onSalvarCliente }: Props) {
                     </ul>
                 </details>
             )}
+            {lixeira.clientes.length + lixeira.processos.length > 0 && <PainelLixeira ativa={base} lixeira={lixeira} onRestaurar={onRestaurar} />}
         </>
+    )
+}
+
+// Lixeira: o que foi excluído pela tela (exclusão lógica, src/lib/exclusao.ts). Fechada por padrão, no fim da página.
+function PainelLixeira({ ativa, lixeira, onRestaurar }: { ativa: Base; lixeira: Lixeira; onRestaurar: Props['onRestaurar'] }) {
+    const total = lixeira.clientes.length + lixeira.processos.length
+    const nomeDe = new Map([...ativa.clientes, ...lixeira.clientes].map(c => [c.id, c.nome]))
+    const quando = (r: { excluidoEm?: string; excluidoPor?: string }) =>
+        `excluído ${r.excluidoEm ? `em ${formatarDataHora(r.excluidoEm)}` : ''}${r.excluidoPor ? ` por ${r.excluidoPor}` : ''}`
+    return (
+        <details className="mt-8 rounded-lg border border-slate-300 bg-white p-4 text-sm shadow-sm">
+            <summary className="flex cursor-pointer items-center gap-2 font-medium text-slate-700">
+                <Trash2 size={18} /> Lixeira: {total} {total === 1 ? 'item excluído' : 'itens excluídos'} — dá para restaurar
+            </summary>
+            {lixeira.clientes.length > 0 && (
+                <>
+                    <h3 className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Clientes</h3>
+                    <ul className="divide-y divide-slate-100">
+                        {lixeira.clientes.map(c => (
+                            <ItemLixeira key={c.id} titulo={c.nome} detalhe={quando(c)} bloqueio={bloqueioRestaurarCliente(c, ativa.clientes)}
+                                onRestaurar={() => onRestaurar('cliente', c)} />
+                        ))}
+                    </ul>
+                </>
+            )}
+            {lixeira.processos.length > 0 && (
+                <>
+                    <h3 className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Processos</h3>
+                    <ul className="divide-y divide-slate-100">
+                        {lixeira.processos.map(p => (
+                            <ItemLixeira key={p.id} titulo={p.numero} detalhe={`${nomeDe.get(p.clienteId) ?? p.clienteId} · ${quando(p)}`}
+                                bloqueio={bloqueioRestaurarProcesso(p, ativa, lixeira)} onRestaurar={() => onRestaurar('processo', p)} />
+                        ))}
+                    </ul>
+                </>
+            )}
+        </details>
+    )
+}
+
+function ItemLixeira({ titulo, detalhe, bloqueio, onRestaurar }: { titulo: string; detalhe: string; bloqueio?: string; onRestaurar: () => Promise<void> }) {
+    const [restaurando, setRestaurando] = useState(false)
+    const [falha, setFalha] = useState('')
+    const restaurar = async () => {
+        setRestaurando(true)
+        setFalha('')
+        try {
+            await onRestaurar() // deu certo: o item sai da lista e este componente desmonta
+        } catch (e) {
+            setFalha(e instanceof Error ? e.message : 'Não foi possível restaurar.')
+            setRestaurando(false)
+        }
+    }
+    return (
+        <li className="flex flex-wrap items-center justify-between gap-3 py-2">
+            <div className="min-w-0">
+                <p className="font-medium text-slate-800">{titulo}</p>
+                <p className="text-xs text-slate-500">{detalhe}</p>
+                {(bloqueio || falha) && <p className="mt-0.5 text-xs text-rose-700">{bloqueio ?? falha}</p>}
+            </div>
+            <button type="button" onClick={restaurar} disabled={!!bloqueio || restaurando}
+                className="flex shrink-0 items-center gap-1.5 rounded-md border border-fg-300 px-3 py-1.5 text-xs font-semibold text-fg-700 hover:border-ouro-500 hover:bg-ouro-100 focus:outline-none focus:ring-2 focus:ring-ouro-500/70 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent">
+                <RotateCcw size={13} /> {restaurando ? 'Restaurando…' : 'Restaurar'}
+            </button>
+        </li>
     )
 }
 

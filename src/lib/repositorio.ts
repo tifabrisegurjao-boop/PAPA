@@ -1,3 +1,4 @@
+import { paraTextoLocal } from './formatacao.ts'
 import type { Base, Cliente, Processo } from '../tipos.ts'
 
 /**
@@ -15,6 +16,11 @@ export interface Repositorio {
     assinar(aoMudar: (base: Base) => void, aoFalhar: (erro: Error) => void): () => void
     salvarCliente(cliente: Cliente): Promise<void>
     salvarProcesso(processo: Processo): Promise<void>
+    /**
+     * Exclusão lógica (`excluir` = true: vai para a Lixeira) ou restauração (false). Não apaga nada: marca
+     * `excluidoEm`/`excluidoPor`. `registro.versao` é a versão que a tela mostrava — se mudou no banco, recusa.
+     */
+    definirExclusao(tipo: 'cliente' | 'processo', registro: Cliente | Processo, excluir: boolean): Promise<void>
 }
 
 export function repositorioMemoria(carregar: () => Promise<Base>): Repositorio {
@@ -38,6 +44,16 @@ export function repositorioMemoria(carregar: () => Promise<Base>): Repositorio {
         async salvarProcesso(processo) {
             if (!base) throw new Error('A base ainda não carregou.')
             base = { ...base, processos: substituir(base.processos, processo) }
+            avisar()
+        },
+        async definirExclusao(tipo, registro, excluir) {
+            if (!base) throw new Error('A base ainda não carregou.')
+            const marcar = <T extends Cliente | Processo>(r: T): T => {
+                if (r.id !== registro.id) return r
+                const { excluidoEm: _e, excluidoPor: _p, ...resto } = r
+                return (excluir ? { ...resto, excluidoEm: paraTextoLocal(), excluidoPor: 'esta aba (demonstração)' } : resto) as T
+            }
+            base = tipo === 'cliente' ? { ...base, clientes: base.clientes.map(marcar) } : { ...base, processos: base.processos.map(marcar) }
             avisar()
         },
     }

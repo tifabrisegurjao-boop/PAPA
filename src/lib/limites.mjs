@@ -22,8 +22,11 @@ export const CHAVES = {
     ],
 }
 
-/** Campos de controle que o gravador acrescenta (e as regras exigem). */
-export const CHAVES_DE_CONTROLE = ['versao', 'atualizadoEm', 'atualizadoPor']
+/**
+ * Campos de controle que só o gravador da tela escreve: versão/autoria (exigidos pelas regras) e a exclusão lógica
+ * (`excluidoEm`/`excluidoPor`, ver src/lib/exclusao.ts). O importador não pode escrevê-los (validarRegistro recusa).
+ */
+export const CHAVES_DE_CONTROLE = ['versao', 'atualizadoEm', 'atualizadoPor', 'excluidoEm', 'excluidoPor']
 
 /** Mensagem de erro para o formulário quando um texto passa do teto; undefined quando cabe. */
 export function erroTamanho(colecao, campo, valor) {

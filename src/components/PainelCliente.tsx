@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react'
-import { ArrowLeft, CalendarDays, Clock, FileText, Folder, History, Landmark, Pencil, Plus, Tag } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Clock, FileText, Folder, History, Landmark, Pencil, Plus, Tag, Trash2 } from 'lucide-react'
 import { estadoAcesso } from '../lib/acesso.ts'
 import { montarArvore } from '../lib/arvore.ts'
+import { bloqueioExcluirCliente, bloqueioExcluirProcesso } from '../lib/exclusao.ts'
 import { formatarDataHora } from '../lib/formatacao.ts'
 import type { Cliente, Processo } from '../tipos.ts'
 import ArvoreProcessos from './ArvoreProcessos.tsx'
@@ -14,10 +15,16 @@ interface Props {
     processos: Processo[]
     /** Processo a abrir já selecionado (vindo da busca por número). */
     processoInicialId?: string
+    /** Clientes e processos ATIVOS (sem os da lixeira): validações de nome/nº e bloqueios de exclusão. */
     todosClientes: Cliente[]
     todosProcessos: Processo[]
+    /** Todos os ids do banco, inclusive os da lixeira: um cadastro novo não pode reusar o id de um excluído. */
+    idsClientes: string[]
+    idsProcessos: string[]
     onSalvarCliente: (cliente: Cliente) => Promise<void>
     onSalvarProcesso: (processo: Processo) => Promise<void>
+    /** Exclusão lógica: o registro vai para a Lixeira da tela inicial (dá para restaurar). */
+    onExcluir: (tipo: 'cliente' | 'processo', registro: Cliente | Processo) => Promise<void>
 }
 
 type Modo =
@@ -28,13 +35,17 @@ type Modo =
 
 // Tela 2 — árvore processual à esquerda (como no SEI), cartões e situação atual do processo selecionado à direita.
 // O lápis (no cliente e em cada processo) e o "Novo processo" abrem o formulário no lugar dos cartões.
-export default function PainelCliente({ cliente, processos, processoInicialId, todosClientes, todosProcessos, onSalvarCliente, onSalvarProcesso }: Props) {
+export default function PainelCliente({
+    cliente, processos, processoInicialId, todosClientes, todosProcessos, idsClientes, idsProcessos, onSalvarCliente, onSalvarProcesso, onExcluir,
+}: Props) {
     const { raizes, orfaos } = montarArvore(processos)
     const [selecionadoId, setSelecionadoId] = useState(
         processoInicialId && processos.some(x => x.id === processoInicialId) ? processoInicialId : raizes[0]?.processo.id,
     )
     const [modo, setModo] = useState<Modo>({ tipo: 'ver' })
-    const p = processos.find(x => x.id === selecionadoId)
+    // Selecionado que sumiu (excluído agora, por aqui ou por outra pessoa) cai no primeiro processo principal.
+    const idSelecionado = selecionadoId && processos.some(x => x.id === selecionadoId) ? selecionadoId : raizes[0]?.processo.id
+    const p = processos.find(x => x.id === idSelecionado)
     const relacionados = processos.filter(x => x.vinculo === 'relacionado')
     const acesso = p ? estadoAcesso(p) : 'desconhecido'
     const expirado = acesso === 'expirado'
@@ -55,10 +66,24 @@ export default function PainelCliente({ cliente, processos, processoInicialId, t
     }
 
     return (
-        <div className="grid gap-6 lg:grid-cols-[21rem_1fr]">
+        <div className="relative grid gap-6 lg:grid-cols-[21rem_1fr]">
+            {/* Voltar: em tela larga fica na margem em branco à esquerda da árvore, acompanhando a rolagem (pedido de 29/09).
+                A margem só comporta o botão a partir de ~1480px; abaixo disso ele fica no alto da coluna da árvore. */}
+            <div className="absolute right-full top-0 mr-5 hidden h-full min-[1480px]:block">
+                <a href="#/" title="Voltar para a lista de clientes"
+                    className="sticky top-6 flex w-24 flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-3 text-center text-xs font-semibold leading-tight text-fg-700 shadow-sm transition hover:border-ouro-500 hover:bg-ouro-100 focus:outline-none focus:ring-2 focus:ring-ouro-500/70">
+                    <span className="grid h-10 w-10 place-items-center rounded-full bg-fg-700 text-white"><ArrowLeft size={20} /></span>
+                    Voltar à lista de clientes
+                </a>
+            </div>
+            <div className="flex flex-col gap-3">
+            <a href="#/"
+                className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-fg-700 shadow-sm hover:border-ouro-500 hover:bg-ouro-100 focus:outline-none focus:ring-2 focus:ring-ouro-500/70 min-[1480px]:hidden">
+                <ArrowLeft size={16} /> Voltar para a lista de clientes
+            </a>
             <aside className="h-fit rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 {raizes.length ? (
-                    <ArvoreProcessos raizes={raizes} orfaos={orfaos} selecionadoId={selecionadoId} onSelecionar={selecionar}
+                    <ArvoreProcessos raizes={raizes} orfaos={orfaos} selecionadoId={idSelecionado} onSelecionar={selecionar}
                         onEditar={id => { setSelecionadoId(id); setModo({ tipo: 'editarProcesso', id }) }} />
                 ) : (
                     <p className="text-sm text-slate-500">Nenhum processo cadastrado para este cliente.</p>
@@ -86,14 +111,11 @@ export default function PainelCliente({ cliente, processos, processoInicialId, t
                     </div>
                 )}
             </aside>
+            </div>
 
             <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:p-8">
                 <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div className="min-w-0 flex-1">
-                        {/* Volta para a tela inicial; a busca e a página de cada coluna continuam como estavam. */}
-                        <a href="#/" className="mb-3 inline-flex items-center gap-1.5 rounded-md px-2 py-1 -ml-2 text-sm font-medium text-fg-700 hover:bg-ouro-100 focus:outline-none focus:ring-2 focus:ring-ouro-500/70">
-                            <ArrowLeft size={16} /> Voltar para a lista de clientes
-                        </a>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ouro-700">Painel do cliente</p>
                         <h1 className="flex items-center gap-2 font-slab text-xl font-bold leading-tight text-fg-700 md:text-2xl">
                             <span className="min-w-0">{cliente.nome}</span>
@@ -123,13 +145,18 @@ export default function PainelCliente({ cliente, processos, processoInicialId, t
                 </div>
 
                 {modo.tipo === 'editarCliente' && (
-                    <FormularioCliente key={cliente.id} inicial={cliente} todosClientes={todosClientes} onSalvar={salvarCliente} onCancelar={() => setModo({ tipo: 'ver' })} />
+                    <>
+                        <FormularioCliente key={cliente.id} inicial={cliente} todosClientes={todosClientes} idsUsados={idsClientes}
+                            onSalvar={salvarCliente} onCancelar={() => setModo({ tipo: 'ver' })} />
+                        <ZonaExclusao key={`excluir:${cliente.id}`} oQue="este cliente" rotulo={cliente.nome} bloqueio={bloqueioExcluirCliente(cliente, todosProcessos)}
+                            onExcluir={async () => { await onExcluir('cliente', cliente); window.location.hash = '#/' }} />
+                    </>
                 )}
                 {modo.tipo === 'novoProcesso' && (
                     <>
                         <TituloFormulario>Novo processo de {cliente.nome}</TituloFormulario>
                         <FormularioProcesso key={`novo:${modo.origemId ?? ''}`} clienteId={cliente.id} origemInicialId={modo.origemId} processosDoCliente={processos} todosProcessos={todosProcessos}
-                            onSalvar={salvarProcesso} onCancelar={() => setModo({ tipo: 'ver' })} />
+                            idsUsados={idsProcessos} onSalvar={salvarProcesso} onCancelar={() => setModo({ tipo: 'ver' })} />
                     </>
                 )}
                 {modo.tipo === 'editarProcesso' && (() => {
@@ -138,7 +165,9 @@ export default function PainelCliente({ cliente, processos, processoInicialId, t
                         <>
                             <TituloFormulario>Editar {alvo.numero}</TituloFormulario>
                             <FormularioProcesso key={alvo.id} inicial={alvo} clienteId={cliente.id} processosDoCliente={processos} todosProcessos={todosProcessos}
-                                onSalvar={salvarProcesso} onCancelar={() => setModo({ tipo: 'ver' })} />
+                                idsUsados={idsProcessos} onSalvar={salvarProcesso} onCancelar={() => setModo({ tipo: 'ver' })} />
+                            <ZonaExclusao key={`excluir:${alvo.id}`} oQue="este processo" rotulo={alvo.numero} bloqueio={bloqueioExcluirProcesso(alvo, todosProcessos)}
+                                onExcluir={async () => { await onExcluir('processo', alvo); setModo({ tipo: 'ver' }) }} />
                         </>
                     ) : null
                 })()}
@@ -210,6 +239,55 @@ export default function PainelCliente({ cliente, processos, processoInicialId, t
 
 function TituloFormulario({ children }: { children: ReactNode }) {
     return <h2 className="mb-4 font-slab text-lg font-bold text-fg-700">{children}</h2>
+}
+
+// Fica embaixo do formulário de edição (lápis): excluir é deliberado — dois cliques e o nome à vista. Não apaga:
+// o registro vai para a Lixeira da tela inicial e pode ser restaurado.
+function ZonaExclusao({ oQue, rotulo, bloqueio, onExcluir }: { oQue: string; rotulo: string; bloqueio?: string; onExcluir: () => Promise<void> }) {
+    const [confirmando, setConfirmando] = useState(false)
+    const [excluindo, setExcluindo] = useState(false)
+    const [falha, setFalha] = useState('')
+    const executar = async () => {
+        setExcluindo(true)
+        setFalha('')
+        try {
+            await onExcluir()
+        } catch (e) {
+            setFalha(e instanceof Error ? e.message : 'Não foi possível excluir.')
+            setExcluindo(false)
+        }
+    }
+    return (
+        <div className="mt-8 rounded-xl border border-rose-200 bg-rose-50/60 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-rose-800">
+                <Trash2 size={16} /> Excluir {oQue}
+            </h3>
+            <p className="mt-1 text-sm text-rose-900/80">
+                Sai das telas e vai para a <strong>Lixeira</strong> (no fim da tela inicial), de onde pode ser restaurado. Nada é apagado do banco.
+            </p>
+            {bloqueio ? (
+                <p className="mt-2 text-sm font-medium text-rose-800">{bloqueio}</p>
+            ) : !confirmando ? (
+                <button type="button" onClick={() => setConfirmando(true)}
+                    className="mt-3 flex items-center gap-2 rounded-lg border border-rose-300 bg-white px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100 focus:outline-none focus:ring-2 focus:ring-rose-400">
+                    <Trash2 size={15} /> Excluir {oQue}
+                </button>
+            ) : (
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <span className="text-sm font-medium text-rose-900">Excluir “{rotulo}”?</span>
+                    <button type="button" onClick={executar} disabled={excluindo} autoFocus
+                        className="rounded-lg bg-rose-700 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-800 focus:outline-none focus:ring-2 focus:ring-rose-400 disabled:opacity-60">
+                        {excluindo ? 'Excluindo…' : 'Sim, excluir'}
+                    </button>
+                    <button type="button" onClick={() => setConfirmando(false)} disabled={excluindo}
+                        className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                        Cancelar
+                    </button>
+                </div>
+            )}
+            {falha && <p className="mt-2 text-sm text-rose-700">{falha}</p>}
+        </div>
+    )
 }
 
 function descreverAcesso(p: Processo, estado: ReturnType<typeof estadoAcesso>): string | undefined {

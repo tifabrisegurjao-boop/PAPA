@@ -17,6 +17,9 @@ export interface Cliente {
     versao?: number
     /** Posição na planilha importada (mantida nas edições). */
     ordem?: number
+    /** Exclusão lógica: quando (`AAAA-MM-DDTHH:mm`, hora local) e quem excluiu. Excluído some das telas e fica na Lixeira. */
+    excluidoEm?: string
+    excluidoPor?: string
 }
 
 /** Como um processo se liga ao processo de origem (coluna VÍNCULO da planilha). */
@@ -69,6 +72,9 @@ export interface Processo {
     versao?: number
     /** Posição na planilha importada; a árvore e as listas seguem essa ordem. */
     ordem?: number
+    /** Exclusão lógica (ver Cliente.excluidoEm). */
+    excluidoEm?: string
+    excluidoPor?: string
 }
 
 export interface Base {

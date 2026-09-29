@@ -7,6 +7,12 @@ export function formatarDataHora(valor: string): string {
     return hora ? `${dia}/${mes}/${ano} às ${hora}:${minuto}` : `${dia}/${mes}/${ano}`
 }
 
+/** Data e hora locais no formato da base (`AAAA-MM-DDTHH:mm`), para carimbos mostrados na tela. */
+export function paraTextoLocal(d = new Date()): string {
+    const p = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
 /** Compara só a data (AAAA-MM-DD) com o dia local de hoje: negativo = já passou. */
 export function diasAte(data: string, hoje = new Date()): number | null {
     const m = data.match(/^(\d{4})-(\d{2})-(\d{2})/)

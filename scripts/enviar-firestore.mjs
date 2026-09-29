@@ -103,8 +103,9 @@ if (invalidos.length)
     sair(`${invalidos.length} documento(s) seriam recusados pelas regras do banco — nada foi gravado. Corrija na planilha e gere o JSON de novo:\n  - ${invalidos.join('\n  - ')}`)
 
 const r = plano.resumo
-console.log(`Plano: ${r.novos} novos · ${r.atualizados} atualizados · ${r.reordenados} só mudaram de posição · ${r.inalterados} inalterados (não serão regravados) · ${r.forcados} sobrescritos com --forcar · ${r.pulados} pulados (editados pela tela)`)
+console.log(`Plano: ${r.novos} novos · ${r.atualizados} atualizados · ${r.reordenados} só mudaram de posição · ${r.inalterados} inalterados (não serão regravados) · ${r.forcados} sobrescritos com --forcar · ${r.pulados} pulados (editados pela tela) · ${r.excluidos} na lixeira (não reimportados)`)
 if (plano.pulados.length) console.log(`  Pulados (use --forcar para sobrescrever; o estado anterior vai para historico/):\n   ${plano.pulados.map(p => `${p.colecao}/${p.id} (${p.atualizadoPor})`).join('\n   ')}`)
+if (plano.naLixeira.length) console.log(`  Na lixeira (excluídos pela tela; nem --forcar os traz de volta — restaure pela tela ou tire a linha da planilha):\n   ${plano.naLixeira.map(p => `${p.colecao}/${p.id} (${p.excluidoPor ?? '?'})`).join('\n   ')}`)
 if (plano.avisos.length) console.log(`  Avisos:\n   ⚠ ${plano.avisos.join('\n   ⚠ ')}`)
 if (!plano.escritas.length) { console.log('\nNada a gravar: o banco já está igual à planilha.'); process.exit(0) }
 

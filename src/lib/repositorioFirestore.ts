@@ -2,6 +2,7 @@ import { FirebaseError } from 'firebase/app'
 import { collection, doc, getFirestore, onSnapshot, runTransaction, serverTimestamp, type DocumentData, type QuerySnapshot } from 'firebase/firestore'
 import { app, auth } from './firebase.ts'
 import { PROJETO } from './firebaseConfig.mjs'
+import { paraTextoLocal } from './formatacao.ts'
 import type { Cliente, Processo } from '../tipos.ts'
 import type { Repositorio } from './repositorio.ts'
 
@@ -43,7 +44,7 @@ export function repositorioFirestore(): Repositorio {
             let clientes: Cliente[] | null = null
             let processos: Processo[] | null = null
             const entregar = () => {
-                if (clientes && processos) aoMudar({ geradoEm: agoraIso(), origem: 'Firestore', clientes, processos })
+                if (clientes && processos) aoMudar({ geradoEm: paraTextoLocal(), origem: 'Firestore', clientes, processos })
             }
             const receber = (snap: QuerySnapshot<DocumentData>, guardar: () => void) => {
                 // Sem alcançar o servidor, o SDK entrega o cache — vazio numa aba nova — como se fosse a base. Avisar em vez de
@@ -62,6 +63,41 @@ export function repositorioFirestore(): Repositorio {
         },
         salvarCliente: cliente => gravar(COLECAO_CLIENTES, cliente),
         salvarProcesso: processo => gravar(COLECAO_PROCESSOS, processo),
+        definirExclusao: (tipo, registro, excluir) => marcarExclusao(tipo === 'cliente' ? COLECAO_CLIENTES : COLECAO_PROCESSOS, registro, excluir),
+    }
+}
+
+/**
+ * Exclusão lógica / restauração, na mesma transação com `versao` e `historico` das edições. Excluir acrescenta
+ * `excluidoEm` (carimbo do servidor) e `excluidoPor`; restaurar grava o conteúdo sem os dois. O resto do documento
+ * vem do próprio banco — a tela só manda id e versão —, então nada que outra pessoa gravou é perdido.
+ */
+async function marcarExclusao(colecao: string, registro: { id: string; versao?: number }, excluir: boolean): Promise<void> {
+    const ref = doc(db, colecao, registro.id)
+    const quem = auth.currentUser?.email ?? null
+    const acao = excluir ? 'excluir' : 'restaurar'
+    try {
+        await runTransaction(db, async tx => {
+            const atual = await tx.get(ref)
+            if (!atual.exists()) throw new Error('Este registro não existe mais no banco. Recarregue a página.')
+            const dados = atual.data()
+            const versaoNoBanco = (dados.versao as number | undefined) ?? 0
+            if (versaoNoBanco !== (registro.versao ?? 0))
+                throw new Error(`Outra pessoa alterou este registro agora há pouco (${dados.atualizadoPor ?? 'sem identificação'}). Recarregue a página e confira antes de ${acao}.`)
+            if (!!dados.excluidoEm === excluir) throw new Error(excluir ? 'Este registro já está na lixeira.' : 'Este registro já foi restaurado.')
+            tx.set(doc(collection(ref, 'historico')), { ...dados, arquivadoEm: serverTimestamp(), arquivadoPor: quem })
+            const { excluidoEm: _e, excluidoPor: _p, versao: _v, atualizadoEm: _a, atualizadoPor: _b, ...conteudo } = dados
+            tx.set(ref, {
+                ...conteudo,
+                ...(excluir ? { excluidoEm: serverTimestamp(), excluidoPor: quem } : {}),
+                versao: versaoNoBanco + 1,
+                atualizadoEm: serverTimestamp(),
+                atualizadoPor: quem,
+            })
+        })
+    } catch (e) {
+        if (e instanceof FirebaseError) throw traduzir(e, 'gravar')
+        throw e
     }
 }
 
@@ -98,14 +134,15 @@ async function gravar<T extends { id: string; versao?: number }>(colecao: string
 
 function docs<T>(snap: QuerySnapshot<DocumentData>): T[] {
     // `ordem` guarda a posição da planilha na importação, para a árvore sair na mesma ordem de lá.
+    // serverTimestamps 'estimate': logo depois de excluir, o carimbo ainda não voltou do servidor; sem a estimativa ele
+    // viria null e o registro "piscaria" como ativo até a confirmação.
     return snap.docs
-        .map(d => ({ ...(d.data() as T & { ordem?: number; atualizadoEm?: unknown; atualizadoPor?: unknown }), id: d.id }))
+        .map(d => {
+            const { excluidoEm, atualizadoEm: _a, atualizadoPor: _b, ...resto } = d.data({ serverTimestamps: 'estimate' }) as T & {
+                ordem?: number; atualizadoEm?: unknown; atualizadoPor?: unknown; excluidoEm?: { toDate?: () => Date } | null
+            }
+            const quando = excluidoEm?.toDate ? paraTextoLocal(excluidoEm.toDate()) : undefined
+            return { ...resto, id: d.id, ...(quando ? { excluidoEm: quando } : {}) } as T & { ordem?: number }
+        })
         .sort((a, b) => (a.ordem ?? 1e9) - (b.ordem ?? 1e9))
-        .map(({ atualizadoEm: _a, atualizadoPor: _b, ...resto }) => resto as T)
-}
-
-function agoraIso() {
-    const d = new Date()
-    const p = (n: number) => String(n).padStart(2, '0')
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
 }

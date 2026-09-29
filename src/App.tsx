@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { carregarBase } from './lib/dados.ts'
+import { separarExcluidos } from './lib/exclusao.ts'
 import { repositorioMemoria, type Repositorio } from './lib/repositorio.ts'
 import type { Sessao } from './lib/autenticacao.ts'
 import type { Base } from './tipos.ts'
@@ -71,10 +72,13 @@ export default function App() {
         return () => { parar(); setBase(null) }
     }, [sessao, repositorio])
 
-    const cliente = rota.tela === 'cliente' ? base?.clientes.find(c => c.id === rota.clienteId) : undefined
+    // As telas só veem o que está ativo; o excluído (exclusão lógica) vai para a Lixeira da tela inicial.
+    const separada = useMemo(() => (base ? separarExcluidos(base) : null), [base])
+    const cliente = rota.tela === 'cliente' ? separada?.ativa.clientes.find(c => c.id === rota.clienteId) : undefined
+    const clienteNaLixeira = rota.tela === 'cliente' && !cliente ? separada?.lixeira.clientes.find(c => c.id === rota.clienteId) : undefined
     // Logo depois de cadastrar, o registro pode levar um instante para chegar pelo banco: espera 3 s antes de dizer que não existe.
     const [esperouCliente, setEsperouCliente] = useState(false)
-    const clienteFaltando = rota.tela === 'cliente' && !!base && !cliente
+    const clienteFaltando = rota.tela === 'cliente' && !!base && !cliente && !clienteNaLixeira
     useEffect(() => {
         setEsperouCliente(false)
         if (!clienteFaltando) return
@@ -94,20 +98,35 @@ export default function App() {
 
     let conteudo: ReactNode
     if (erro) conteudo = <Aviso>{erro}</Aviso>
-    else if (!base) conteudo = <Aviso>Carregando a base…</Aviso>
-    else if (rota.tela === 'lista') conteudo = <ListaClientes base={base} termo={termo} onSalvarCliente={c => repositorio.salvarCliente(c)} />
+    else if (!base || !separada) conteudo = <Aviso>Carregando a base…</Aviso>
+    else if (rota.tela === 'lista')
+        conteudo = (
+            <ListaClientes base={separada.ativa} lixeira={separada.lixeira} idsClientes={base.clientes.map(c => c.id)} termo={termo}
+                onSalvarCliente={c => repositorio.salvarCliente(c)} onRestaurar={(tipo, r) => repositorio.definirExclusao(tipo, r, false)} />
+        )
     else if (cliente)
         conteudo = (
             <PainelCliente
                 key={`${cliente.id}:${rota.processoId ?? ''}`}
                 cliente={cliente}
-                processos={base.processos.filter(p => p.clienteId === cliente.id)}
+                processos={separada.ativa.processos.filter(p => p.clienteId === cliente.id)}
                 processoInicialId={rota.processoId}
-                todosClientes={base.clientes}
-                todosProcessos={base.processos}
+                todosClientes={separada.ativa.clientes}
+                todosProcessos={separada.ativa.processos}
+                idsClientes={base.clientes.map(c => c.id)}
+                idsProcessos={base.processos.map(p => p.id)}
                 onSalvarCliente={c => repositorio.salvarCliente(c)}
                 onSalvarProcesso={p => repositorio.salvarProcesso(p)}
+                onExcluir={(tipo, r) => repositorio.definirExclusao(tipo, r, true)}
             />
+        )
+    else if (clienteNaLixeira)
+        conteudo = (
+            <Aviso>
+                “{clienteNaLixeira.nome}” está na lixeira{clienteNaLixeira.excluidoPor ? ` (excluído por ${clienteNaLixeira.excluidoPor})` : ''}. Para trazê-lo
+                de volta, use <strong>Restaurar</strong> na Lixeira, no fim da tela inicial.{' '}
+                <a href="#/" className="text-fg-700 underline">Voltar à listagem</a>
+            </Aviso>
         )
     else if (!esperouCliente) conteudo = <Aviso>Carregando o cliente…</Aviso>
     else

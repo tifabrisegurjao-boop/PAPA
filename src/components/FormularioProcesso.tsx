@@ -19,15 +19,17 @@ interface Props {
     origemInicialId?: string
     /** Processos do mesmo cliente: menu de origem. */
     processosDoCliente: Processo[]
-    /** Todos os processos da base: recusa nº repetido. */
+    /** Todos os processos ATIVOS da base: recusa nº repetido. */
     todosProcessos: Processo[]
+    /** Ids já usados no banco, inclusive os da lixeira (o id novo não pode colidir com um excluído). */
+    idsUsados?: string[]
     onSalvar: (processo: Processo) => Promise<void>
     onCancelar: () => void
 }
 
 // O formulário é a linha da aba Processos da planilha, seção por seção. Mesmos menus (aba Listas), mesmas regras
 // (nº obrigatório e único; origem só entre processos do próprio cliente).
-export default function FormularioProcesso({ inicial, clienteId, origemInicialId, processosDoCliente, todosProcessos, onSalvar, onCancelar }: Props) {
+export default function FormularioProcesso({ inicial, clienteId, origemInicialId, processosDoCliente, todosProcessos, idsUsados, onSalvar, onCancelar }: Props) {
     const [f, setF] = useState(() => ({
         numero: inicial?.numero ?? '',
         sistema: inicial ? inicial.sistema ?? '' : 'SEI/RO',
@@ -95,7 +97,7 @@ export default function FormularioProcesso({ inicial, clienteId, origemInicialId
         ev.preventDefault()
         if (!validar()) return
         const numero = f.numero.trim()
-        const id = inicial?.id ?? idLivre(idProcesso(numero), todosProcessos.map(p => p.id))
+        const id = inicial?.id ?? idLivre(idProcesso(numero), idsUsados ?? todosProcessos.map(p => p.id))
         const limpo = (s: string) => s.trim() || undefined
         const processo: Processo = {
             id,

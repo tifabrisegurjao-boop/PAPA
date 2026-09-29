@@ -15,7 +15,7 @@ const porId = (plano: { escritas: { colecao: string; id: string }[] }, colecao: 
 test('importação: 1ª carga em banco vazio grava tudo como novo, com o pai apontando para o id certo', () => {
     const b = base([cli('c-ana', 'Ana')], [proc('p-1', 'c-ana', '0001'), proc('p-2', 'c-ana', '0002', { processoPaiId: 'p-1', vinculo: 'derivado' })])
     const plano = planejarImportacao(b)
-    assert.deepEqual(plano.resumo, { novos: 3, atualizados: 0, reordenados: 0, inalterados: 0, forcados: 0, pulados: 0 })
+    assert.deepEqual(plano.resumo, { novos: 3, atualizados: 0, reordenados: 0, inalterados: 0, forcados: 0, pulados: 0, excluidos: 0 })
     assert.equal(plano.escritas.every(e => e.motivo === 'novo' && e.anterior === null), true)
     assert.equal(porId(plano, 'papaProcessos', 'p-2')!.dados.processoPaiId, 'p-1')
     assert.equal(plano.avisos.length, 0)
@@ -35,7 +35,7 @@ test('importação: linha inserida acima só muda a posição — atualização 
     }
     const b = base([cli('c-novo', 'Novo', { ordem: 0 }), cli('c-a', 'A', { ordem: 1 }), cli('c-b', 'B', { ordem: 2, observacao: 'corrigida na tela' }), cli('c-c', 'C', { ordem: 3 })], [])
     const plano = planejarImportacao(b, banco)
-    assert.deepEqual(plano.resumo, { novos: 1, atualizados: 0, reordenados: 2, inalterados: 1, forcados: 0, pulados: 0 })
+    assert.deepEqual(plano.resumo, { novos: 1, atualizados: 0, reordenados: 2, inalterados: 1, forcados: 0, pulados: 0, excluidos: 0 })
     const a = porId(plano, 'papaClientes', 'c-a')!
     assert.equal(a.motivo, 'ordem')
     assert.deepEqual(a.dados, { nome: 'A', tipoPessoa: 'PF', ordem: 1 })
@@ -182,6 +182,22 @@ test('importação: desdobramento aponta para o id que o pai tem no banco, não 
     const b = base([cli('c-ana', 'Ana')], [proc('p-0001', 'c-ana', '0001'), proc('p-0009', 'c-ana', '0009', { processoPaiId: 'p-0001', vinculo: 'derivado' })])
     const plano = planejarImportacao(b, banco)
     assert.equal(porId(plano, 'papaProcessos', 'p-0009')!.dados.processoPaiId, 'p-0001-2')
+})
+
+test('importação: o que foi excluído pela tela não volta — nem com --forcar; processo novo de cliente na lixeira não entra', () => {
+    const naLixeira = (r: Record<string, unknown>) => ({ ...editado(r), excluidoEm: { seconds: 3 }, excluidoPor: 'ana@x.com' })
+    const banco = {
+        clientesNoBanco: [naLixeira(cli('c-ana', 'Ana')), importado(cli('c-beto', 'Beto'))],
+        processosNoBanco: [naLixeira(proc('p-0001', 'c-ana', '0001')), naLixeira(proc('p-0009', 'c-beto', '0009'))],
+        forcar: true,
+    }
+    const b = base([cli('c-ana', 'Ana', { observacao: 'mudou' }), cli('c-beto', 'Beto')],
+        [proc('p-0001', 'c-ana', '0001', { status: 'mudou' }), proc('p-0002', 'c-ana', '0002'), proc('p-0009', 'c-beto', '0009', { status: 'mudou' })])
+    const plano = planejarImportacao(b, banco)
+    assert.deepEqual(plano.escritas.map(e => e.id), [], 'nada é escrito: Ana, 0001 e 0009 estão na lixeira; 0002 é de cliente na lixeira')
+    assert.deepEqual(plano.naLixeira.map(x => x.id).sort(), ['c-ana', 'p-0001', 'p-0009'])
+    assert.equal(plano.resumo.excluidos, 4)
+    assert.match(plano.avisos.join('\n'), /processo 0002 é de cliente que está na lixeira \("Ana"\)/)
 })
 
 test('importação: paraHistorico tira o id e nunca deixa undefined (o SDK recusa)', () => {

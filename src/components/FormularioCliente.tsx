@@ -8,7 +8,10 @@ import { Area, Campo, Rotulo, Secao } from './Campos.tsx'
 
 interface Props {
     inicial?: Cliente
+    /** Clientes ATIVOS: o nome não pode repetir o de nenhum deles. */
     todosClientes: Cliente[]
+    /** Ids já usados no banco, inclusive os da lixeira (o id novo não pode colidir com um excluído). */
+    idsUsados?: string[]
     onSalvar: (cliente: Cliente) => Promise<void>
     onCancelar: () => void
 }
@@ -17,7 +20,7 @@ interface Props {
 export const proximaOrdem = (lista: { ordem?: number }[]) => lista.reduce((m, x) => Math.max(m, x.ordem ?? -1), -1) + 1
 
 // A linha da aba Clientes da planilha: nome, PF/PJ, nº do Nexus, link da pasta, observação.
-export default function FormularioCliente({ inicial, todosClientes, onSalvar, onCancelar }: Props) {
+export default function FormularioCliente({ inicial, todosClientes, idsUsados, onSalvar, onCancelar }: Props) {
     const [nome, setNome] = useState(inicial?.nome ?? '')
     const [tipoPessoa, setTipoPessoa] = useState<TipoPessoa | ''>(inicial?.tipoPessoa ?? '')
     const [numeroNexus, setNumeroNexus] = useState(inicial?.numeroNexus ?? '')
@@ -49,7 +52,7 @@ export default function FormularioCliente({ inicial, todosClientes, onSalvar, on
         ev.preventDefault()
         if (!validar()) return
         const cliente: Cliente = {
-            id: inicial?.id ?? idLivre(idCliente(nome.trim()), todosClientes.map(c => c.id)),
+            id: inicial?.id ?? idLivre(idCliente(nome.trim()), idsUsados ?? todosClientes.map(c => c.id)),
             nome: nome.trim(),
             tipoPessoa: tipoPessoa || null,
             numeroNexus: numeroNexus.trim() || undefined,
