@@ -13,13 +13,22 @@ const base = (clientes: Cliente[], processos: Processo[]): Base => ({ geradoEm: 
 test('exclusão: a base ativa some com os excluídos e com os processos de cliente excluído; a lixeira mostra os excluídos', () => {
     const b = base(
         [cli('c-ana', 'Ana'), cli('c-beto', 'Beto', fora)],
-        [proc('p-1', 'c-ana', '0001'), proc('p-2', 'c-ana', '0002', fora), proc('p-3', 'c-beto', '0003', fora), proc('p-4', 'c-sem', '0004')],
+        [proc('p-1', 'c-ana', '0001'), proc('p-2', 'c-ana', '0002', fora), proc('p-3', 'c-beto', '0003', fora), proc('p-4', 'c-sem', '0004'),
+            proc('p-6', 'c-beto', '0006')],
     )
     const { ativa, lixeira } = separarExcluidos(b)
     assert.deepEqual(ativa.clientes.map(c => c.id), ['c-ana'])
     assert.deepEqual(ativa.processos.map(p => p.id), ['p-1', 'p-4'], 'processo de cliente inexistente continua visível (não é exclusão)')
     assert.deepEqual(lixeira.clientes.map(c => c.id), ['c-beto'])
-    assert.deepEqual(lixeira.processos.map(p => p.id), ['p-2', 'p-3'])
+    assert.deepEqual(lixeira.processos.map(p => p.id), ['p-2', 'p-3', 'p-6'], 'processo ativo de cliente excluído aparece na lixeira, não some')
+    assert.match(bloqueioRestaurarProcesso(b.processos[4], ativa, lixeira)!, /não foi excluído: ele volta sozinho/)
+})
+
+test('exclusão: ciclo de origem (A → B → A) não trava a exclusão; desdobramento de outro cliente é identificado', () => {
+    const ciclo = [proc('p-1', 'c-ana', '1111', { processoPaiId: 'p-2' }), proc('p-2', 'c-ana', '2222', { processoPaiId: 'p-1' })]
+    assert.equal(bloqueioExcluirProcesso(ciclo[0], ciclo), undefined)
+    const deOutro = [proc('q', 'c-beto', '3333'), proc('p', 'c-ana', '4444', { processoPaiId: 'q' })]
+    assert.match(bloqueioExcluirProcesso(deOutro[0], deOutro, id => (id === 'c-ana' ? 'Ana' : undefined))!, /\(4444, do cliente Ana\)/)
 })
 
 test('exclusão: cliente com processo ativo e processo com desdobramento ativo não podem ser excluídos', () => {

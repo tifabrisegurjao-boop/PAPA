@@ -18,20 +18,25 @@ const SEM_CONEXAO = 'Sem conexão com o banco (firestore.googleapis.com). Verifi
 
 // "permission-denied" tem mais de uma causa na ativação; a mensagem lista todas, na ordem em que costumam acontecer,
 // e mostra o e-mail exato do login — é ele, em minúsculas, que tem de ser o id do documento em papaEquipe.
-function explicarPermissao(acao: 'ler' | 'gravar'): string {
+type Acao = 'ler' | 'gravar' | 'excluir'
+
+function explicarPermissao(acao: Acao): string {
     const email = auth.currentUser?.email ?? null
-    return `Sem permissão para ${acao === 'ler' ? 'ler o banco' : 'gravar no banco'} como ${email ?? 'usuário sem e-mail'}. Confira, nesta ordem: ` +
+    return `Sem permissão para ${acao === 'ler' ? 'ler o banco' : acao === 'gravar' ? 'gravar no banco' : 'excluir ou restaurar'} como ${email ?? 'usuário sem e-mail'}. Confira, nesta ordem: ` +
         `(1) existe o documento papaEquipe/${email?.toLowerCase() ?? '<e-mail>'} no Firestore do projeto ${PROJETO} (o id é o e-mail, todo em minúsculas); ` +
         '(2) as regras deste projeto foram publicadas (npm run regras, a partir da pasta do PAPA)' +
         (acao === 'gravar' ? '; (3) nenhum campo passou do tamanho permitido' : '') +
+        (acao === 'excluir' ? ' — a exclusão precisa das regras publicadas a partir de 29/09/2026 (campos excluidoEm/excluidoPor)' : '') +
         '. Depois de corrigir, recarregue a página.'
 }
 
-const traduzir = (e: unknown, acao: 'ler' | 'gravar'): Error => {
+const traduzir = (e: unknown, acao: Acao): Error => {
     const codigo = e instanceof FirebaseError || (typeof e === 'object' && e && 'code' in e) ? String((e as { code?: string }).code) : ''
     if (codigo === 'permission-denied') return new Error(explicarPermissao(acao))
     // Na gravação, "recarregue" apagaria o formulário: o que foi digitado continua lá, basta tentar de novo.
-    if (codigo === 'unavailable') return new Error(acao === 'gravar' ? 'Sem conexão com o banco no momento. Confira a internet e clique em Salvar de novo — o que você digitou continua no formulário.' : SEM_CONEXAO)
+    if (codigo === 'unavailable')
+        return new Error(acao === 'gravar' ? 'Sem conexão com o banco no momento. Confira a internet e clique em Salvar de novo — o que você digitou continua no formulário.'
+            : acao === 'excluir' ? 'Sem conexão com o banco no momento. Confira a internet e tente de novo.' : SEM_CONEXAO)
     const mensagem = e instanceof Error ? e.message : String(e)
     return new Error(acao === 'ler' ? `Falha ao ler o banco: ${mensagem}` : `O banco recusou a gravação${codigo ? ` (${codigo})` : ''}: ${mensagem}`)
 }
@@ -96,7 +101,7 @@ async function marcarExclusao(colecao: string, registro: { id: string; versao?: 
             })
         })
     } catch (e) {
-        if (e instanceof FirebaseError) throw traduzir(e, 'gravar')
+        if (e instanceof FirebaseError) throw traduzir(e, 'excluir')
         throw e
     }
 }

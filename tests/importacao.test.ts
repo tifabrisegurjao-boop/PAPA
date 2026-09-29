@@ -195,9 +195,52 @@ test('importação: o que foi excluído pela tela não volta — nem com --forca
         [proc('p-0001', 'c-ana', '0001', { status: 'mudou' }), proc('p-0002', 'c-ana', '0002'), proc('p-0009', 'c-beto', '0009', { status: 'mudou' })])
     const plano = planejarImportacao(b, banco)
     assert.deepEqual(plano.escritas.map(e => e.id), [], 'nada é escrito: Ana, 0001 e 0009 estão na lixeira; 0002 é de cliente na lixeira')
-    assert.deepEqual(plano.naLixeira.map(x => x.id).sort(), ['c-ana', 'p-0001', 'p-0009'])
-    assert.equal(plano.resumo.excluidos, 4)
-    assert.match(plano.avisos.join('\n'), /processo 0002 é de cliente que está na lixeira \("Ana"\)/)
+    assert.deepEqual(plano.naLixeira.map(x => x.id).sort(), ['c-ana', 'p-0001', 'p-0002', 'p-0009'])
+    assert.equal(plano.resumo.excluidos, plano.naLixeira.length, 'a contagem bate com a lista impressa')
+    assert.match(plano.avisos.join('\n'), /processo 0002 iria para cliente que está na lixeira \("Ana"\)/)
+    assert.doesNotMatch(plano.avisos.join('\n'), /mantido como registro separado/, 'sem aviso contraditório para a linha que não entra')
+})
+
+test('importação: ativo tem preferência sobre o da lixeira — cliente e processo excluídos e recadastrados pela tela recebem a planilha', () => {
+    const naLixeira = (r: Record<string, unknown>) => ({ ...editado(r), excluidoEm: { seconds: 3 }, excluidoPor: 'ana@x.com' })
+    const banco = {
+        clientesNoBanco: [naLixeira(cli('c-ana', 'Ana')), editado(cli('c-ana-2', 'Ana'))],
+        processosNoBanco: [naLixeira(proc('p-0001', 'c-ana', '0001')), editado(proc('p-0001-2', 'c-ana-2', '0001'))],
+    }
+    const b = base([cli('c-ana', 'Ana')], [proc('p-0001', 'c-ana', '0001', { status: 'novo status' }), proc('p-0020', 'c-ana', '0020')])
+    const plano = planejarImportacao(b, { ...banco, forcar: true })
+    assert.equal(porId(plano, 'papaProcessos', 'p-0001-2')!.dados.status, 'novo status', 'a linha 0001 cai no ativo p-0001-2')
+    assert.equal(porId(plano, 'papaProcessos', 'p-0020')!.dados.clienteId, 'c-ana-2', 'processo novo vai para a Ana ativa')
+    assert.deepEqual(plano.naLixeira, [])
+})
+
+test('importação: processo ATIVO não é levado para cliente que está na lixeira (sumiria de todas as telas)', () => {
+    const banco = {
+        clientesNoBanco: [importado(cli('c-beto', 'Beto')), { ...editado(cli('c-ana', 'Ana')), excluidoEm: { seconds: 3 } }],
+        processosNoBanco: [importado(proc('p-0005', 'c-beto', '0005'))],
+    }
+    const b = base([cli('c-ana', 'Ana'), cli('c-beto', 'Beto')], [proc('p-0005', 'c-ana', '0005')])
+    const plano = planejarImportacao(b, banco)
+    assert.equal(porId(plano, 'papaProcessos', 'p-0005'), undefined, 'p-0005 continua com Beto')
+    assert.match(plano.avisos.join('\n'), /processo 0005 iria para cliente que está na lixeira \("Ana"\)/)
+    assert.doesNotMatch(plano.avisos.join('\n'), /muda de cliente/)
+})
+
+test('importação: desdobramento novo cuja origem está na lixeira não entra; o que já existe segue, com aviso', () => {
+    const banco = {
+        clientesNoBanco: [importado(cli('c-ana', 'Ana'))],
+        processosNoBanco: [{ ...editado(proc('p-0001', 'c-ana', '0001')), excluidoEm: { seconds: 3 } }, importado(proc('p-0003', 'c-ana', '0003', { processoPaiId: 'p-0001', vinculo: 'derivado' }))],
+    }
+    const b = base([cli('c-ana', 'Ana')], [
+        proc('p-0001', 'c-ana', '0001'),
+        proc('p-0002', 'c-ana', '0002', { processoPaiId: 'p-0001', vinculo: 'derivado' }),
+        proc('p-0003', 'c-ana', '0003', { processoPaiId: 'p-0001', vinculo: 'derivado', status: 'andou' }),
+    ])
+    const plano = planejarImportacao(b, banco)
+    assert.equal(porId(plano, 'papaProcessos', 'p-0002'), undefined)
+    assert.match(plano.avisos.join('\n'), /processo 0002: a origem \(0001\) está na lixeira — não importado/)
+    assert.equal(porId(plano, 'papaProcessos', 'p-0003')!.dados.status, 'andou')
+    assert.match(plano.avisos.join('\n'), /processo 0003: a origem \(0001\) está na lixeira — na árvore ele aparece como principal/)
 })
 
 test('importação: paraHistorico tira o id e nunca deixa undefined (o SDK recusa)', () => {

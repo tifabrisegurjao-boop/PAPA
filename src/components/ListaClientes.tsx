@@ -79,9 +79,16 @@ export default function ListaClientes({ base, lixeira, idsClientes, termo, onSal
                     <Coluna chave="sem-tipo" termo={termo} titulo="Sem classificação (preencher PF/PJ)" clientes={ordenar(semTipo)} resumo={resumo} alerta />
                 </div>
             )}
-            {termo && visiveis.length === 0 && encontrados.length === 0 && (
-                <p className="mt-6 text-center text-slate-500">Nenhum cliente ou processo encontrado para “{termo}”.</p>
-            )}
+            {termo && visiveis.length === 0 && encontrados.length === 0 && (() => {
+                // Só existe na lixeira? Dizer isso evita recadastrar o que dá para restaurar.
+                const naLixeira = filtrarClientes(lixeira.clientes, [], termo).length + buscarProcessos(lixeira.processos, termo).length
+                return (
+                    <p className="mt-6 text-center text-slate-500">
+                        Nenhum cliente ou processo ativo encontrado para “{termo}”.
+                        {naLixeira > 0 && <> Mas {naLixeira === 1 ? '1 item da Lixeira bate' : `${naLixeira} itens da Lixeira batem`} com a busca (fim da página): restaure em vez de cadastrar de novo.</>}
+                    </p>
+                )
+            })()}
             {base.avisos && base.avisos.length > 0 && (
                 <details className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                     <summary className="flex cursor-pointer items-center gap-2 font-medium">
@@ -102,7 +109,9 @@ function PainelLixeira({ ativa, lixeira, onRestaurar }: { ativa: Base; lixeira: 
     const total = lixeira.clientes.length + lixeira.processos.length
     const nomeDe = new Map([...ativa.clientes, ...lixeira.clientes].map(c => [c.id, c.nome]))
     const quando = (r: { excluidoEm?: string; excluidoPor?: string }) =>
-        `excluído ${r.excluidoEm ? `em ${formatarDataHora(r.excluidoEm)}` : ''}${r.excluidoPor ? ` por ${r.excluidoPor}` : ''}`
+        r.excluidoEm
+            ? `excluído em ${formatarDataHora(r.excluidoEm)}${r.excluidoPor ? ` por ${r.excluidoPor}` : ''}`
+            : 'não foi excluído — está aqui porque o cliente dele está na lixeira'
     return (
         <details className="mt-8 rounded-lg border border-slate-300 bg-white p-4 text-sm shadow-sm">
             <summary className="flex cursor-pointer items-center gap-2 font-medium text-slate-700">

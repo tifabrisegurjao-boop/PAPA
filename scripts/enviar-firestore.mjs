@@ -107,7 +107,12 @@ console.log(`Plano: ${r.novos} novos · ${r.atualizados} atualizados · ${r.reor
 if (plano.pulados.length) console.log(`  Pulados (use --forcar para sobrescrever; o estado anterior vai para historico/):\n   ${plano.pulados.map(p => `${p.colecao}/${p.id} (${p.atualizadoPor})`).join('\n   ')}`)
 if (plano.naLixeira.length) console.log(`  Na lixeira (excluídos pela tela; nem --forcar os traz de volta — restaure pela tela ou tire a linha da planilha):\n   ${plano.naLixeira.map(p => `${p.colecao}/${p.id} (${p.excluidoPor ?? '?'})`).join('\n   ')}`)
 if (plano.avisos.length) console.log(`  Avisos:\n   ⚠ ${plano.avisos.join('\n   ⚠ ')}`)
-if (!plano.escritas.length) { console.log('\nNada a gravar: o banco já está igual à planilha.'); process.exit(0) }
+if (!plano.escritas.length) {
+    console.log(plano.pulados.length || plano.naLixeira.length
+        ? '\nNada a gravar (veja acima os pulados e os que estão na lixeira).'
+        : '\nNada a gravar: o banco já está igual à planilha.')
+    process.exit(0)
+}
 
 const confirmacao = await perguntar(`\nGravar ${plano.escritas.length} documento(s) em ${PROJETO} como ${quem}? Digite SIM para continuar: `)
 if (confirmacao !== 'SIM') sair('Cancelado. Nada foi gravado.', 0)
@@ -121,7 +126,11 @@ const commit = async () => {
         await lote.commit()
     } catch (e) {
         sair(`O banco recusou um lote com ${idsDoLote.length} documento(s) (${e.code ?? e.message}). Já haviam sido gravados ${gravados} documentos; os deste lote não:\n   ${idsDoLote.join('\n   ')}\n` +
-            (e.code === 'permission-denied' ? '  permission-denied depois da validação local costuma ser papaEquipe/regras (veja acima) ou regra publicada diferente de firestore.rules.' : ''))
+            (e.code === 'permission-denied'
+                ? '  Depois da validação local, o mais provável é o banco ter mudado depois do plano: alguém salvou, excluiu ou restaurou pela tela, e as\n' +
+                  '  regras só aceitam a versão seguinte à do banco. Rode o comando de novo para refazer o plano. (Ou as regras publicadas não são as\n' +
+                  '  desta pasta: npm run regras.)'
+                : ''))
     }
     gravados += idsDoLote.length
     lote = writeBatch(db); noLote = 0; idsDoLote = []

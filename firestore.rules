@@ -37,6 +37,13 @@ service cloud.firestore {
         || (d.excluidoEm == request.time && d.excluidoPor == request.auth.token.email);
     }
 
+    // Toda gravação é a SUCESSORA da versão que está no banco. A tela já confere isso na transação; aqui vale também para
+    // o importador, que grava em lote a partir de um plano lido antes do "SIM": se alguém salvou, excluiu ou restaurou pela
+    // tela nesse meio-tempo, o lote é recusado em vez de passar por cima (nem ressuscita o que foi para a lixeira).
+    function sucessora() {
+      return resource == null || request.resource.data.versao == resource.data.get('versao', 0) + 1;
+    }
+
     function texto(campo, max) {
       return !(campo in request.resource.data) || (request.resource.data[campo] is string && request.resource.data[campo].size() <= max);
     }
@@ -48,7 +55,7 @@ service cloud.firestore {
 
     match /papaClientes/{clienteId} {
       allow read: if daEquipe();
-      allow create, update: if daEquipe() && assinado() && exclusao()
+      allow create, update: if daEquipe() && assinado() && exclusao() && sucessora()
         && request.resource.data.keys().hasOnly(['nome', 'tipoPessoa', 'numeroNexus', 'linkPasta', 'observacao', 'versao', 'ordem', 'atualizadoEm', 'atualizadoPor',
              'excluidoEm', 'excluidoPor'])
         && request.resource.data.nome is string && request.resource.data.nome.size() > 0 && request.resource.data.nome.size() <= 200
@@ -64,7 +71,7 @@ service cloud.firestore {
 
     match /papaProcessos/{processoId} {
       allow read: if daEquipe();
-      allow create, update: if daEquipe() && assinado() && exclusao()
+      allow create, update: if daEquipe() && assinado() && exclusao() && sucessora()
         && request.resource.data.keys().hasOnly(['clienteId', 'numero', 'sistema', 'processoPaiId', 'vinculo', 'orgaoSigla', 'orgaoNome', 'tipo', 'natureza',
              'objeto', 'status', 'situacaoAtual', 'observacao', 'ultimaMovimentacao', 'linkProcesso', 'codigoCasoNexus', 'acesso', 'versao', 'ordem',
              'atualizadoEm', 'atualizadoPor', 'excluidoEm', 'excluidoPor'])

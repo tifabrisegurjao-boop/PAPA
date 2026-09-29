@@ -137,8 +137,11 @@ export function planejarImportacao(base, { clientesNoBanco = [], processosNoBanc
 
     // ── clientes ──
     const clientePorId = new Map(clientesNoBanco.map(c => [c.id, c]))
-    const clientePorNexus = new Map(clientesNoBanco.filter(c => soDigitos(c.numeroNexus)).map(c => [soDigitos(c.numeroNexus), c]))
-    const clientePorNome = new Map(clientesNoBanco.map(c => [normalizar(c.nome), c]))
+    // Ativo tem preferência sobre o da lixeira (cliente excluído e recadastrado pela tela tem outro id; a planilha deve cair
+    // no ativo): os excluídos entram primeiro nos mapas e o ativo de mesma chave os substitui.
+    const lixeiraPrimeiro = lista => [...lista.filter(x => x.excluidoEm), ...lista.filter(x => !x.excluidoEm)]
+    const clientePorNexus = new Map(lixeiraPrimeiro(clientesNoBanco).filter(c => soDigitos(c.numeroNexus)).map(c => [soDigitos(c.numeroNexus), c]))
+    const clientePorNome = new Map(lixeiraPrimeiro(clientesNoBanco).map(c => [normalizar(c.nome), c]))
     const idsClientes = new Set(clientesNoBanco.map(c => c.id))
     const consumidosC = new Map() // id no banco → nome da linha da planilha que o levou
     const idClienteFinal = new Map() // id na planilha → id no banco
@@ -148,7 +151,7 @@ export function planejarImportacao(base, { clientesNoBanco = [], processosNoBanc
         const nexus = soDigitos(c.numeroNexus)
         const candidatos = [['id', clientePorId.get(idPlanilha)], ['nexus', nexus ? clientePorNexus.get(nexus) : undefined], ['nome', clientePorNome.get(normalizar(c.nome))]]
             .filter(([, x]) => x)
-        const [como, existente] = candidatos.find(([, x]) => !consumidosC.has(x.id)) ?? []
+        const [como, existente] = candidatos.find(([, x]) => !consumidosC.has(x.id) && !x.excluidoEm) ?? candidatos.find(([, x]) => !consumidosC.has(x.id)) ?? []
         // Ambiguidade: esta linha também aponta para um registro do banco que outra linha já levou (duas grafias do mesmo cliente?).
         for (const [, x] of candidatos)
             if (consumidosC.has(x.id) && x.id !== existente?.id && !avisos.includes(`AMB:${x.id}:${c.nome}`))
@@ -186,16 +189,21 @@ export function planejarImportacao(base, { clientesNoBanco = [], processosNoBanc
         const k = chaveNumero(p.numero)
         const porId = processoPorId.get(p.id)
         const livre = x => x && !consumidosP.has(x.id)
+        const doCliente = x => livre(x) && x.clienteId === clienteIdFinal
+        const candidatosN = porNumero.get(k) ?? []
         let existente, mudanca
-        if (livre(porId) && porId.clienteId === clienteIdFinal) existente = porId
-        else existente = (porNumero.get(k) ?? []).find(x => livre(x) && x.clienteId === clienteIdFinal)
+        // Mesmo cliente: primeiro um ATIVO (por id, depois por nº) — processo excluído e recadastrado pela tela tem outro id —,
+        // só depois o da lixeira.
+        if (doCliente(porId) && !porId.excluidoEm) existente = porId
+        else existente = candidatosN.find(x => doCliente(x) && !x.excluidoEm) ?? (doCliente(porId) ? porId : candidatosN.find(doCliente))
         if (!existente && livre(porId) && !linhasPorNumero.get(k)?.has(porId.clienteId)) {
             existente = porId // o nº saiu do cliente antigo: é mudança de cliente, não um segundo processo
             mudanca = { processo: p.numero, de: porId.clienteId, para: clienteIdFinal }
         }
         const idFinal = existente ? existente.id : idLivre(p.id, idsProcessos)
-        if (!existente) {
-            const candidatosN = porNumero.get(k) ?? []
+        // Linha que iria para um cliente que está na lixeira não é importada (2ª passada): sem avisos de nº repetido para ela.
+        const paraClienteNaLixeira = clientesNaLixeira.has(clienteIdFinal) && !existente?.excluidoEm
+        if (!existente && !paraClienteNaLixeira) {
             const doMesmo = candidatosN.find(x => x.clienteId === clienteIdFinal)
             if (doMesmo) avisos.push(`processo ${p.numero}: o registro deste cliente com esse nº (${doMesmo.id}) já foi usado por outra linha da planilha — esta linha vira um segundo registro (${idFinal}); confira se o nº está repetido para o mesmo cliente`)
             else if (candidatosN.length) avisos.push(`processo ${p.numero} já existe no banco para outro cliente — mantido como registro separado (${idFinal})`)
@@ -203,19 +211,32 @@ export function planejarImportacao(base, { clientesNoBanco = [], processosNoBanc
         idsProcessos.add(idFinal)
         if (existente) consumidosP.add(existente.id)
         idProcessoFinal.set(p.id, idFinal)
-        decisoes.push({ p, idFinal, existente, clienteIdFinal, mudanca })
+        decisoes.push({ p, idFinal, existente, clienteIdFinal, mudanca, paraClienteNaLixeira })
     }
     const movidos = [] // mudanças de cliente que serão gravadas de fato
     const ficaram = new Map() // cliente antigo → nºs que ficaram lá por terem sido editados na tela (pulados)
-    for (const { p, idFinal, existente, clienteIdFinal, mudanca } of decisoes) {
-        if (!existente && clientesNaLixeira.has(clienteIdFinal)) {
-            avisos.push(`processo ${p.numero} é de cliente que está na lixeira ("${clientesNoBanco.find(c => c.id === clienteIdFinal)?.nome}") — não importado; restaure o cliente pela tela ou tire a linha da planilha`)
+    for (const { p, idFinal, existente, clienteIdFinal, mudanca, paraClienteNaLixeira } of decisoes) {
+        // Processo novo, ou ativo que mudaria de cliente, indo para um cliente na lixeira: sumiria de todas as telas. Não entra.
+        if (paraClienteNaLixeira) {
+            avisos.push(`processo ${p.numero} iria para cliente que está na lixeira ("${clientesNoBanco.find(c => c.id === clienteIdFinal)?.nome}") — não importado; restaure o cliente pela tela ou corrija a planilha`)
+            naLixeira.push({ colecao: 'papaProcessos', id: idFinal, excluidoPor: '(cliente na lixeira)' })
             resumo.excluidos++
             continue
         }
         const { id: _id, ...dados } = p
         dados.clienteId = clienteIdFinal
         if (dados.processoPaiId && idProcessoFinal.has(dados.processoPaiId)) dados.processoPaiId = idProcessoFinal.get(dados.processoPaiId)
+        // Origem na lixeira: desdobramento novo não entra (ficaria órfão na árvore); o que já existe segue, com aviso.
+        const origemNaLixeira = dados.processoPaiId ? processoPorId.get(dados.processoPaiId) : undefined
+        if (origemNaLixeira?.excluidoEm) {
+            if (!existente) {
+                avisos.push(`processo ${p.numero}: a origem (${origemNaLixeira.numero}) está na lixeira — não importado; restaure a origem pela tela ou corrija a planilha`)
+                naLixeira.push({ colecao: 'papaProcessos', id: idFinal, excluidoPor: '(origem na lixeira)' })
+                resumo.excluidos++
+                continue
+            }
+            avisos.push(`processo ${p.numero}: a origem (${origemNaLixeira.numero}) está na lixeira — na árvore ele aparece como principal até a origem ser restaurada`)
+        }
         const motivo = decidir('papaProcessos', idFinal, dados, existente)
         if (!mudanca) continue
         if (motivo === 'atualizado' || motivo === 'forcado') movidos.push(mudanca)

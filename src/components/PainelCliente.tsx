@@ -166,7 +166,8 @@ export default function PainelCliente({
                             <TituloFormulario>Editar {alvo.numero}</TituloFormulario>
                             <FormularioProcesso key={alvo.id} inicial={alvo} clienteId={cliente.id} processosDoCliente={processos} todosProcessos={todosProcessos}
                                 idsUsados={idsProcessos} onSalvar={salvarProcesso} onCancelar={() => setModo({ tipo: 'ver' })} />
-                            <ZonaExclusao key={`excluir:${alvo.id}`} oQue="este processo" rotulo={alvo.numero} bloqueio={bloqueioExcluirProcesso(alvo, todosProcessos)}
+                            <ZonaExclusao key={`excluir:${alvo.id}`} oQue="este processo" rotulo={alvo.numero}
+                                bloqueio={bloqueioExcluirProcesso(alvo, todosProcessos, id => todosClientes.find(c => c.id === id)?.nome)}
                                 onExcluir={async () => { await onExcluir('processo', alvo); setModo({ tipo: 'ver' }) }} />
                         </>
                     ) : null
