@@ -489,6 +489,15 @@ def sistema_de(numero, url, orgao):
     return ""
 
 
+def url_limpa(url):
+    """Link copiado do Outlook vem embrulhado em safelinks.protection.outlook.com: devolve o endereço de verdade (parâmetro url=)."""
+    from urllib.parse import parse_qs, urlparse
+    if "safelinks.protection.outlook.com" in (url or "").lower():
+        alvo = parse_qs(urlparse(url).query).get("url")
+        return alvo[0] if alvo else url
+    return url
+
+
 def migrar(origem, destino):
     wb = load_workbook(origem, data_only=True)
     ws = wb["Planilha1"]
@@ -607,7 +616,7 @@ def migrar(origem, destino):
         processos.append({
             "cliente": cliente, "numero": numero, "sistema": sistema, "origem": origem_num,
             "vinculo": "Derivado" if origem_num else "", "tipo": tipo, "natureza": NATUREZA_POR_TIPO.get(tipo, ""),
-            "objeto": C(r, "H"), "orgao": orgao, "status": status, "url": C(r, "U"), "codigoCasoNexus": codigo,
+            "objeto": C(r, "H"), "orgao": orgao, "status": status, "url": url_limpa(C(r, "U")), "codigoCasoNexus": codigo,
             "formaAcesso": forma, "conta": conta, "acessoSeiGeral": C(r, "O").upper(),
             "dataPedidoAcesso": C(r, "M") or None, "terminoAcesso": C(r, "N") or None,
             "renovar": C(r, "R").upper(), "situacaoAcesso": C(r, "T").upper(), "observacao": C(r, "P"),
