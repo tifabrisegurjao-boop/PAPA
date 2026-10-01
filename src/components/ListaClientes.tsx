@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AlertTriangle, ChevronLeft, ChevronRight, FileText, Lock, RotateCcw, Trash2, UserPlus } from 'lucide-react'
-import { semAcesso } from '../lib/acesso.ts'
+import { comLiberacao, semAcesso, soComLiberacao } from '../lib/acesso.ts'
 import { buscarProcessos, filtrarClientes } from '../lib/busca.ts'
 import { bloqueioRestaurarCliente, bloqueioRestaurarProcesso, type Lixeira } from '../lib/exclusao.ts'
 import { formatarDataHora } from '../lib/formatacao.ts'
@@ -10,7 +10,14 @@ import FormularioCliente from './FormularioCliente.tsx'
 
 const MAX_PROCESSOS_LISTADOS = 40
 
-interface Resumo { total: number; expirados: number }
+interface Resumo { total: number; expirados: number; liberados: number }
+
+/** Filtro da tela inicial (pedido de 01/10/2026): todos os clientes, ou só os que têm processo com acesso valendo hoje. */
+type Filtro = 'todos' | 'liberacao'
+const CHAVE_FILTRO = 'papa:filtro'
+function lerFiltro(): Filtro {
+    try { return sessionStorage.getItem(CHAVE_FILTRO) === 'liberacao' ? 'liberacao' : 'todos' } catch { return 'todos' }
+}
 
 interface Props {
     /** Só o que está ativo (os excluídos ficam em `lixeira`). */
@@ -26,17 +33,28 @@ interface Props {
 // Tela 1 — inspirada no Controle de Processos do SEI: as colunas "recebidos/gerados" viram Pessoa física/jurídica.
 export default function ListaClientes({ base, lixeira, idsClientes, termo, onSalvarCliente, onRestaurar }: Props) {
     const [cadastrando, setCadastrando] = useState(false)
+    // Lembrado nesta aba (como a página de cada coluna): abrir um cliente e voltar mantém o filtro.
+    const [filtro, setFiltro] = useState<Filtro>(lerFiltro)
+    const mudarFiltro = (novo: Filtro) => {
+        setFiltro(novo)
+        try { sessionStorage.setItem(CHAVE_FILTRO, novo) } catch { /* sem armazenamento: só não lembra */ }
+    }
     const hoje = new Date()
     const resumo = new Map<string, Resumo>()
     for (const p of base.processos) {
-        const r = resumo.get(p.clienteId) ?? { total: 0, expirados: 0 }
+        const r = resumo.get(p.clienteId) ?? { total: 0, expirados: 0, liberados: 0 }
         r.total++
         if (semAcesso(p, hoje)) r.expirados++
+        if (comLiberacao(p, hoje)) r.liberados++
         resumo.set(p.clienteId, r)
     }
-    const visiveis = filtrarClientes(base.clientes, base.processos, termo)
+    const soLiberados = filtro === 'liberacao'
+    const vista = soLiberados ? soComLiberacao(base, hoje) : base
+    const visiveis = filtrarClientes(vista.clientes, vista.processos, termo)
     const semTipo = visiveis.filter(c => !c.tipoPessoa)
-    const encontrados = buscarProcessos(base.processos, termo)
+    const encontrados = buscarProcessos(vista.processos, termo)
+    // Página lembrada por coluna: muda a busca OU o filtro, volta para a página 1.
+    const chaveDaLista = soLiberados ? `${termo}\u0001liberacao` : termo
     const nomeDe = new Map(base.clientes.map(c => [c.id, c.nome]))
     const totalExpirados = [...resumo.values()].reduce((s, r) => s + r.expirados, 0)
 
@@ -49,7 +67,18 @@ export default function ListaClientes({ base, lixeira, idsClientes, termo, onSal
     return (
         <>
             <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-                <h1 className="font-slab text-2xl font-bold text-fg-700 md:text-3xl">Controle de Processos</h1>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <h1 className="font-slab text-2xl font-bold text-fg-700 md:text-3xl">Controle de Processos</h1>
+                    <div role="group" aria-label="Mostrar clientes" className="inline-flex rounded-full border border-slate-300 bg-white p-0.5 text-xs font-medium shadow-sm">
+                        {([['todos', 'Todos', 'Todos os clientes'], ['liberacao', 'Com liberação', 'Só clientes com algum processo de acesso externo valendo hoje']] as const).map(([valor, texto, dica]) => (
+                            <button key={valor} type="button" aria-pressed={filtro === valor} title={dica} onClick={() => mudarFiltro(valor)}
+                                className={`rounded-full px-3 py-1 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ouro-500/70 ${
+                                    filtro === valor ? 'bg-fg-700 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                                {texto}
+                            </button>
+                        ))}
+                    </div>
+                </div>
                 <div className="flex flex-wrap items-center gap-4">
                     <p className="flex items-center gap-1.5 text-sm text-slate-500">
                         <Lock size={14} className="text-rose-600" /> nome em vermelho = cliente com acesso expirado
@@ -71,21 +100,26 @@ export default function ListaClientes({ base, lixeira, idsClientes, termo, onSal
             {encontrados.length > 0 && <ProcessosEncontrados processos={encontrados} nomeDe={nomeDe} hoje={hoje} />}
 
             <div className="grid gap-6 md:grid-cols-2">
-                <Coluna chave="pf" termo={termo} titulo="Pessoa física" clientes={doTipo(visiveis, 'PF')} resumo={resumo} />
-                <Coluna chave="pj" termo={termo} titulo="Pessoa jurídica" clientes={doTipo(visiveis, 'PJ')} resumo={resumo} />
+                <Coluna chave="pf" termo={chaveDaLista} titulo="Pessoa física" clientes={doTipo(visiveis, 'PF')} resumo={resumo} soLiberados={soLiberados} />
+                <Coluna chave="pj" termo={chaveDaLista} titulo="Pessoa jurídica" clientes={doTipo(visiveis, 'PJ')} resumo={resumo} soLiberados={soLiberados} />
             </div>
             {semTipo.length > 0 && (
                 <div className="mt-6">
-                    <Coluna chave="sem-tipo" termo={termo} titulo="Sem classificação (preencher PF/PJ)" clientes={ordenar(semTipo)} resumo={resumo} alerta />
+                    <Coluna chave="sem-tipo" termo={chaveDaLista} titulo="Sem classificação (preencher PF/PJ)" clientes={ordenar(semTipo)} resumo={resumo} soLiberados={soLiberados} alerta />
                 </div>
             )}
-            {termo && visiveis.length === 0 && encontrados.length === 0 && (() => {
-                // Só existe na lixeira? Dizer isso evita recadastrar o que dá para restaurar.
-                const naLixeira = filtrarClientes(lixeira.clientes, [], termo).length + buscarProcessos(lixeira.processos, termo).length
+            {(termo || soLiberados) && visiveis.length === 0 && encontrados.length === 0 && (() => {
+                // Só existe na lixeira, ou só fora do filtro? Dizer isso evita recadastrar o que já está na base.
+                const naLixeira = termo ? filtrarClientes(lixeira.clientes, [], termo).length + buscarProcessos(lixeira.processos, termo).length : 0
+                const foraDoFiltro = soLiberados ? filtrarClientes(base.clientes, base.processos, termo).length + buscarProcessos(base.processos, termo).length : 0
                 return (
                     <p className="mt-6 text-center text-slate-500">
-                        Nenhum cliente ou processo ativo encontrado para “{termo}”.
-                        {naLixeira > 0 && <> Mas {naLixeira === 1 ? '1 item da Lixeira bate' : `${naLixeira} itens da Lixeira batem`} com a busca (fim da página): restaure em vez de cadastrar de novo.</>}
+                        {termo ? <>Nenhum cliente ou processo ativo encontrado para “{termo}”{soLiberados && ' entre os que estão com liberação'}.</> : 'Nenhum cliente com processo com liberação hoje.'}
+                        {foraDoFiltro > 0 && (
+                            <> {foraDoFiltro === 1 ? 'Há 1 resultado' : `Há ${foraDoFiltro} resultados`} sem liberação:{' '}
+                                <button type="button" onClick={() => mudarFiltro('todos')} className="font-medium text-fg-700 underline">mostrar todos</button>.</>
+                        )}
+                        {naLixeira > 0 && <> {naLixeira === 1 ? '1 item da Lixeira bate' : `${naLixeira} itens da Lixeira batem`} com a busca (fim da página): restaure em vez de cadastrar de novo.</>}
                     </p>
                 )
             })()}
@@ -214,11 +248,13 @@ function ProcessosEncontrados({ processos, nomeDe, hoje }: { processos: Processo
 interface ColunaProps {
     /** Identifica a coluna para lembrar a página ao abrir um cliente e voltar. */
     chave: string
-    /** Busca atual: mudou a busca, a coluna volta para a página 1. */
+    /** Busca atual (mais o filtro): mudou, a coluna volta para a página 1. */
     termo: string
     titulo: string
     clientes: Cliente[]
     resumo: Map<string, Resumo>
+    /** Filtro "Com liberação" ligado: a contagem de cada cliente passa a ser "N de M com liberação". */
+    soLiberados?: boolean
     alerta?: boolean
 }
 
@@ -232,7 +268,7 @@ function lerPagina(chave: string, termo: string): number {
     }
 }
 
-function Coluna({ chave, termo, titulo, clientes, resumo, alerta }: ColunaProps) {
+function Coluna({ chave, termo, titulo, clientes, resumo, soLiberados, alerta }: ColunaProps) {
     const [pedida, setPedida] = useState(() => lerPagina(chave, termo))
     const [termoDaPagina, setTermoDaPagina] = useState(termo)
     // Busca mudou: volta para a página 1 (ajuste de estado durante o render, sem efeito extra).
@@ -258,7 +294,7 @@ function Coluna({ chave, termo, titulo, clientes, resumo, alerta }: ColunaProps)
             ) : (
                 <ul className="divide-y divide-slate-100">
                     {itens.map(c => {
-                        const r = resumo.get(c.id) ?? { total: 0, expirados: 0 }
+                        const r = resumo.get(c.id) ?? { total: 0, expirados: 0, liberados: 0 }
                         const vermelho = r.expirados > 0
                         return (
                             <li key={c.id}>
@@ -269,7 +305,9 @@ function Coluna({ chave, termo, titulo, clientes, resumo, alerta }: ColunaProps)
                                         <span className="truncate">{c.nome}</span>
                                         {vermelho && <Lock size={13} className="shrink-0" aria-label="acesso expirado" />}
                                     </span>
-                                    <span className="shrink-0 text-xs text-slate-500">{r.total} {r.total === 1 ? 'processo' : 'processos'}</span>
+                                    <span className="shrink-0 text-xs text-slate-500">
+                                        {soLiberados ? `${r.liberados} de ${r.total} com liberação` : `${r.total} ${r.total === 1 ? 'processo' : 'processos'}`}
+                                    </span>
                                 </a>
                             </li>
                         )

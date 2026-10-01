@@ -1,4 +1,4 @@
-import type { Processo } from '../tipos.ts'
+import type { Base, Processo } from '../tipos.ts'
 import { diasAte } from './formatacao.ts'
 
 export type EstadoAcesso = 'expirado' | 'a-vencer' | 'ok' | 'sem-info' | 'fisico' | 'desconhecido'
@@ -26,3 +26,19 @@ export function estadoAcesso(p: Processo, hoje = new Date()): EstadoAcesso {
 
 /** Verdadeiro quando o escritório perdeu o acesso externo (prazo vencido ou marcado EXPIRADO). */
 export const semAcesso = (p: Processo, hoje?: Date) => estadoAcesso(p, hoje) === 'expirado'
+
+/**
+ * "Com liberação" = o acesso externo está valendo hoje: término hoje ou depois, ou — sem data — situação ATIVO.
+ * Acesso sem informação, processo físico e acesso expirado ficam de fora.
+ */
+export function comLiberacao(p: Processo, hoje?: Date): boolean {
+    const estado = estadoAcesso(p, hoje)
+    return estado === 'ok' || estado === 'a-vencer'
+}
+
+/** A base reduzida ao que está com liberação: só esses processos e só os clientes que têm algum deles. */
+export function soComLiberacao(base: Base, hoje?: Date): Base {
+    const processos = base.processos.filter(p => comLiberacao(p, hoje))
+    const donos = new Set(processos.map(p => p.clienteId))
+    return { ...base, clientes: base.clientes.filter(c => donos.has(c.id)), processos }
+}
