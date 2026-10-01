@@ -13,3 +13,6 @@ dados/*
 .env
 .env.*
 !.env.demo
+
+# cache local do firebase-tools (hosting)
+.firebase/

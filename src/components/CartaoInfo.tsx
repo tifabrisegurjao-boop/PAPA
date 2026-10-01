@@ -21,11 +21,15 @@ interface Props {
     href?: string
     /** Tooltip do atalho (o que abre). */
     titulo?: string
+    /** Texto do botãozinho do atalho (padrão "Abrir"). */
+    rotuloAtalho?: string
+    /** Roda junto com a abertura do link (ex.: copiar o nº do processo). */
+    aoAbrir?: () => void
     cor: keyof typeof CORES
     className?: string
 }
 
-export default function CartaoInfo({ icone: Icone, rotulo, valor, detalhe, alerta, href, titulo, cor, className = '' }: Props) {
+export default function CartaoInfo({ icone: Icone, rotulo, valor, detalhe, alerta, href, titulo, rotuloAtalho = 'Abrir', aoAbrir, cor, className = '' }: Props) {
     const c = CORES[cor]
     const conteudo = (
         <>
@@ -39,14 +43,14 @@ export default function CartaoInfo({ icone: Icone, rotulo, valor, detalhe, alert
             </span>
             {href && (
                 <span className="flex shrink-0 items-center gap-1 self-start rounded-full bg-white/70 px-2.5 py-1 text-[11px] font-semibold text-fg-700 ring-1 ring-fg-200 group-hover:bg-fg-700 group-hover:text-white">
-                    Abrir <ExternalLink size={12} />
+                    {rotuloAtalho} <ExternalLink size={12} />
                 </span>
             )}
         </>
     )
     const classe = `flex h-full min-h-[5.5rem] items-center gap-4 rounded-xl border p-4 ${c.fundo} ${className}`
     return href ? (
-        <a href={href} target="_blank" rel="noopener noreferrer" title={titulo ?? 'Abrir (nova aba)'}
+        <a href={href} target="_blank" rel="noopener noreferrer" title={titulo ?? 'Abrir (nova aba)'} onClick={aoAbrir}
             className={`group ${classe} cursor-pointer transition hover:-translate-y-0.5 hover:border-fg-500 hover:shadow-md`}>
             {conteudo}
         </a>

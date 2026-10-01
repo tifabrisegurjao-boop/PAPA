@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
-import { ArrowLeft, CalendarDays, Clock, FileText, Folder, History, Landmark, Pencil, Plus, Tag, Trash2 } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Clock, Copy, FileText, Folder, History, KeyRound, Landmark, LogIn, Pencil, Plus, Tag, Trash2 } from 'lucide-react'
 import { estadoAcesso } from '../lib/acesso.ts'
+import { rotaDeAcesso } from '../lib/acessoSei.ts'
 import { montarArvore } from '../lib/arvore.ts'
 import { bloqueioExcluirCliente, bloqueioExcluirProcesso } from '../lib/exclusao.ts'
 import { formatarDataHora } from '../lib/formatacao.ts'
@@ -49,6 +50,15 @@ export default function PainelCliente({
     const relacionados = processos.filter(x => x.vinculo === 'relacionado')
     const acesso = p ? estadoAcesso(p) : 'desconhecido'
     const expirado = acesso === 'expirado'
+    const rota = p ? rotaDeAcesso(p) : undefined
+    // Id do processo cujo nº acabou de ser copiado (a faixa do login confirma; trocar de processo apaga a confirmação).
+    const [copiado, setCopiado] = useState<string>()
+    const copiarNumero = () => {
+        if (!p) return
+        const id = p.id
+        // Sem permissão de área de transferência (navegador antigo, página sem https) o link abre do mesmo jeito.
+        navigator.clipboard?.writeText(p.numero).then(() => setCopiado(id), () => setCopiado(undefined))
+    }
     const situacao = p?.situacaoAtual || p?.observacao
 
     const selecionar = (id: string) => {
@@ -178,7 +188,9 @@ export default function PainelCliente({
                         <div className="grid gap-4 md:grid-cols-2">
                             {/* O cartão do número é o atalho para o SEI: clicar nele abre o processo. */}
                             <CartaoInfo icone={FileText} cor="processo" rotulo={p.sistema ?? 'Processo'} valor={p.numero}
-                                detalhe={descreverAcesso(p, acesso)} alerta={expirado} href={p.linkProcesso} titulo="Abrir o processo no sistema de origem (nova aba)" />
+                                detalhe={descreverAcesso(p, acesso)} alerta={expirado} href={rota?.url}
+                                rotuloAtalho={rota?.modo === 'login' ? 'Entrar' : 'Abrir'} aoAbrir={rota?.modo === 'login' ? copiarNumero : undefined}
+                                titulo={rota?.modo === 'login' ? 'Abre o SEI (nova aba) e copia o nº do processo' : 'Abrir o processo no sistema de origem (nova aba)'} />
                             <CartaoInfo icone={Folder} cor="pasta" rotulo="Pasta no OneDrive" valor={cliente.linkPasta ? 'Processos do cliente' : 'Sem link'}
                                 detalhe={[cliente.numeroNexus ? `Nº Nexus ${cliente.numeroNexus}` : 'Sem nº Nexus', cliente.linkPasta ? 'Documentos do cliente' : 'Cadastre o link (lápis ao lado do nome)'].join(' · ')}
                                 href={cliente.linkPasta} titulo="Abrir a pasta do cliente no OneDrive (nova aba)" />
@@ -186,6 +198,26 @@ export default function PainelCliente({
                             <CartaoInfo icone={Tag} cor="tipo" rotulo="Tipo" valor={p.tipo} />
                             <CartaoInfo icone={Clock} cor="status" rotulo="Status" valor={p.status} />
                         </div>
+                        {/* Processo que só abre com login no SEI: diz a conta, copia o nº e dá o atalho da tela de login. */}
+                        {rota?.modo === 'login' && (
+                            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-petroleo-200 bg-petroleo-100/60 px-4 py-2.5 text-sm text-fg-800">
+                                <KeyRound size={16} className="shrink-0 text-fg-700" />
+                                <span className="min-w-0 flex-1">
+                                    Abre com <strong>login no SEI</strong>{rota.conta ? <> — conta <strong className="break-all">{rota.conta}</strong></> : ' (conta de acesso não cadastrada: preencha no lápis)'}.{' '}
+                                    {copiado === p.id ? <span className="font-semibold text-salvia-800">Nº copiado: depois de entrar, cole na lista de processos.</span> : 'Ao clicar em Entrar, o nº é copiado para você colar lá dentro.'}
+                                </span>
+                                <button type="button" onClick={copiarNumero}
+                                    className="flex items-center gap-1.5 rounded-md border border-fg-300 bg-white px-2.5 py-1 text-xs font-semibold text-fg-700 hover:border-ouro-500 hover:bg-ouro-100">
+                                    <Copy size={13} /> Copiar nº
+                                </button>
+                                {rota.urlLogin && rota.urlLogin !== rota.url && (
+                                    <a href={rota.urlLogin} target="_blank" rel="noopener noreferrer" onClick={copiarNumero}
+                                        className="flex items-center gap-1.5 rounded-md border border-fg-300 bg-white px-2.5 py-1 text-xs font-semibold text-fg-700 hover:border-ouro-500 hover:bg-ouro-100">
+                                        <LogIn size={13} /> Tela de login do SEI
+                                    </a>
+                                )}
+                            </div>
+                        )}
 
                         <div className="mt-6 grid gap-6 rounded-xl border border-slate-200 bg-slate-50/60 p-5 md:grid-cols-[1fr_17rem]">
                             <div>
