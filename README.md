@@ -67,6 +67,13 @@ Desde 29/09/2026 o PAPA tem **projeto Firebase próprio: `papa-85025`** ("PAPA" 
 9. **Se algo entrou errado:** pela tela, **Excluir** (no lápis) manda o registro para a Lixeira — some das telas e pode ser restaurado; ver "Excluir e Lixeira" em Telas. Apagar de verdade é só no Console (Firestore › documento › ⋮ › Delete, ou *Delete collection* para começar de novo). Toda gravação por cima guarda o anterior em `historico/` do próprio documento. Backup: o plano Spark não tem exportação automática — enquanto não houver rotina, a planilha continua sendo a cópia de segurança do que foi importado.
 10. **Domínios:** para login por e-mail/senha o Firebase **não** exige listar o domínio (Authorized domains só vale para Google/OAuth e link por e-mail). Se, no site publicado, o login falhar com `requests-from-referer-…-are-blocked`, é restrição de referrer da chave de API em Google Cloud › APIs e serviços › Credenciais — acrescente o domínio lá.
 
+## Sistema no ar (produção)
+Desde 01/10/2026 o sistema real está em **https://papa-85025.web.app** (Firebase Hosting do projeto do PAPA): pede login, lê e grava no Firestore, e o que é publicado é só o `dist/` do build de produção — sem base em JSON (`firebase.json` ainda ignora `dados/**` por segurança). Para publicar uma versão nova:
+```bash
+npm run publicar           # = npm run build + npx firebase-tools deploy --only hosting --project papa-85025
+```
+Antes, confira o aviso do `limpar-dist` no fim do build. Quem abre o link sem conta só vê a tela de login; cada pessoa precisa de conta em Authentication e do e-mail na `papaEquipe`. O portal do escritório (Hostinger) pode apontar um cartão para este endereço.
+
 ## Demo no GitHub Pages
 A demonstração pública (https://tifabrisegurjao-boop.github.io/PAPA/) vem do branch **`demo`** (congelado em 28/09/2026 como o MVP apresentado à chefia; tag `demo-mvp-v1`). `.github/workflows/pages.yml` dispara em push na `main` (ou à mão), faz **checkout do `demo`**, `build:demo` e publica — assim a `main` evolui para a produção sem mudar o que a chefia vê. Para atualizar a demo: leve a mudança ao `demo` (merge/cherry-pick) e `git push origin demo main`. O branch `demo` precisa existir no GitHub (o workflow avisa se não existir). **Em Settings › Pages › Build and deployment, a fonte tem de ser "GitHub Actions"** — em "Deploy from a branch" o GitHub publica o código-fonte cru por cima do build e a página fica só com "Carregando o Projeto PAPA…".
 

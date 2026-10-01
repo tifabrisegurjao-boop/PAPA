@@ -16,6 +16,7 @@
         "dados:links-exemplo": "node scripts/links-exemplo.mjs",
         "dados:enriquecer-demo": "node scripts/enriquecer-demo.mjs",
         "regras": "npx --yes firebase-tools deploy --only firestore:rules --project papa-85025",
+        "publicar": "npm run build && npx --yes firebase-tools deploy --only hosting --project papa-85025",
         "firebase:login": "npx --yes firebase-tools login",
         "preview": "vite preview"
     },
