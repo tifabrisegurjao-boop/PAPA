@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>PAPA — contas de acesso ao SEI</title>
+        <link rel="stylesheet" href="opcoes.css" />
+    </head>
+    <body>
+        <header>
+            <img src="icones/48.png" alt="" width="40" height="40" />
+            <div>
+                <p class="marca">Projeto PAPA</p>
+                <h1>Contas de acesso ao SEI</h1>
+            </div>
+        </header>
+
+        <main>
+            <section class="nota">
+                <p>
+                    Quando você clica em <strong>Entrar</strong> num processo do PAPA, esta extensão abre o SEI, faz o login com a conta do
+                    processo e abre o processo na lista de acessos externos. Para isso ela precisa da senha de cada conta — cadastre abaixo.
+                </p>
+                <ul>
+                    <li>As senhas ficam <strong>só neste navegador</strong>, no armazenamento da extensão. Não vão para o PAPA, para o banco nem para a internet.</li>
+                    <li>Elas só são digitadas na tela de login do SEI para o qual foram salvas, e só na aba que o PAPA abriu.</li>
+                    <li>Se o SEI recusar o login, a extensão <strong>não tenta de novo</strong> (para não bloquear a conta). Se ele pedir o código da imagem, ela espera você digitar.</li>
+                    <li>Quem usa este computador com o seu usuário do Windows consegue usar essas contas. Em computador compartilhado, não cadastre.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>Contas salvas</h2>
+                <p id="vazio" class="discreto">Nenhuma conta salva ainda.</p>
+                <table id="tabela" hidden>
+                    <thead>
+                        <tr>
+                            <th>SEI</th>
+                            <th>E-mail da conta</th>
+                            <th>Senha</th>
+                            <th>Padrão</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="linhas"></tbody>
+                </table>
+            </section>
+
+            <section>
+                <h2 id="titulo-formulario">Cadastrar conta</h2>
+                <form id="formulario" autocomplete="off">
+                    <label>
+                        <span>SEI</span>
+                        <select id="host" required></select>
+                    </label>
+                    <label>
+                        <span>E-mail da conta (como está na CONTA DE ACESSO do processo)</span>
+                        <input id="email" type="email" required maxlength="100" placeholder="conta@exemplo.com" autocomplete="off" />
+                    </label>
+                    <label>
+                        <span>Senha do SEI</span>
+                        <input id="senha" type="password" required maxlength="200" autocomplete="new-password" />
+                    </label>
+                    <label class="marcar">
+                        <input id="padrao" type="checkbox" />
+                        <span>Conta padrão deste SEI (usada quando o processo não tem conta de acesso cadastrada)</span>
+                    </label>
+                    <div class="botoes">
+                        <button type="submit">Salvar conta</button>
+                        <span id="recado" role="status"></span>
+                    </div>
+                </form>
+            </section>
+        </main>
+        <script src="logica.js"></script>
+        <script src="opcoes.js"></script>
+    </body>
+</html>

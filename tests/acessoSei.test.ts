@@ -17,7 +17,7 @@ test('acesso: link enviado por e-mail abre direto', () => {
 test('acesso: forma "Login SEI" ou "SEI GERAL" pede login, mesmo com link guardado — e diz a conta', () => {
     for (const forma of ['Login SEI', 'SEI GERAL']) {
         const r = rotaDeAcesso(proc({ linkProcesso: CONSULTA, acesso: { forma, conta: 'sei@x.com' } }))
-        assert.deepEqual(r, { modo: 'login', url: CONSULTA, urlLogin: LOGIN_RO, conta: 'sei@x.com' })
+        assert.deepEqual(r, { modo: 'login', url: CONSULTA, urlLogin: LOGIN_RO, host: 'sei.sistemas.ro.gov.br', conta: 'sei@x.com' })
     }
 })
 
@@ -27,10 +27,12 @@ test('acesso: link guardado que é a própria tela de login é login, qualquer q
     assert.equal(r.modo, 'login')
     assert.equal(r.url, dnit)
     assert.equal(r.urlLogin, dnit, 'a tela de login é a do host do link, não a do SEI/RO')
+    assert.equal(r.host, 'sei.dnit.gov.br')
 })
 
 test('acesso: sem link, vai para a tela de login só quando a planilha diz que o acesso é por conta', () => {
-    assert.deepEqual(rotaDeAcesso(proc({ acesso: { forma: 'Login SEI', conta: 'sei@x.com' } })), { modo: 'login', url: LOGIN_RO, urlLogin: LOGIN_RO, conta: 'sei@x.com' })
+    assert.deepEqual(rotaDeAcesso(proc({ acesso: { forma: 'Login SEI', conta: 'sei@x.com' } })),
+        { modo: 'login', url: LOGIN_RO, urlLogin: LOGIN_RO, host: 'sei.sistemas.ro.gov.br', conta: 'sei@x.com' })
     assert.equal(rotaDeAcesso(proc({ acesso: { seiGeral: 'SIM' } })).modo, 'login')
     assert.equal(rotaDeAcesso(proc({ acesso: { forma: 'E-mail atendimento' } })).modo, 'sem-link')
     assert.equal(rotaDeAcesso(proc()).modo, 'sem-link')

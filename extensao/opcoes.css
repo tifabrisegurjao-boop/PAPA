@@ -1,0 +1,35 @@
+/* Tela de contas da extensão: identidade do PAPA (petróleo #173a4c, ouro-areia #d1cda9). */
+:root { color-scheme: light; --petroleo: #173a4c; --ouro: #d1cda9; --linha: #d9dee3; --texto: #1e293b; --discreto: #64748b; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.5 system-ui, "Segoe UI", sans-serif; color: var(--texto); background: #eef2f5; }
+header { display: flex; align-items: center; gap: .9rem; padding: 1.1rem 1.5rem; background: var(--petroleo); color: #fff; }
+header img { border-radius: .5rem; background: #fff; }
+.marca { margin: 0; font-size: .7rem; letter-spacing: .22em; text-transform: uppercase; color: var(--ouro); }
+h1 { margin: 0; font-size: 1.25rem; }
+main { max-width: 46rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; display: grid; gap: 1.25rem; }
+section { background: #fff; border: 1px solid var(--linha); border-radius: .75rem; padding: 1.1rem 1.25rem; }
+h2 { margin: 0 0 .75rem; font-size: 1rem; color: var(--petroleo); }
+.nota { background: #f6f4e6; border-color: #e3dab2; }
+.nota p { margin: 0 0 .6rem; }
+.nota ul { margin: 0; padding-left: 1.2rem; display: grid; gap: .3rem; font-size: .9rem; }
+.discreto { margin: 0; color: var(--discreto); }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+th { text-align: left; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--discreto); padding: .3rem .5rem; border-bottom: 1px solid var(--linha); }
+td { padding: .5rem; border-bottom: 1px solid #eef1f4; overflow-wrap: anywhere; vertical-align: middle; }
+td.acoes { white-space: nowrap; text-align: right; }
+form { display: grid; gap: .8rem; }
+label { display: grid; gap: .25rem; }
+label > span { font-size: .75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--discreto); }
+label.marcar { grid-template-columns: auto 1fr; align-items: start; gap: .5rem; }
+label.marcar > span { text-transform: none; letter-spacing: 0; font-weight: 400; font-size: .9rem; color: var(--texto); }
+input[type="email"], input[type="password"], select { font: inherit; padding: .5rem .65rem; border: 1px solid #cbd5e1; border-radius: .45rem; background: #fff; width: 100%; }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--ouro); outline-offset: 2px; }
+.botoes { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; }
+button { font: inherit; cursor: pointer; border-radius: .5rem; }
+button[type="submit"] { background: var(--petroleo); color: #fff; border: 0; padding: .55rem 1.1rem; font-weight: 600; }
+button[type="submit"]:hover { background: #0f2a38; }
+button.leve { background: #fff; border: 1px solid #cbd5e1; color: var(--petroleo); padding: .25rem .6rem; font-size: .8rem; }
+button.leve:hover { background: #f6f4e6; border-color: var(--ouro); }
+button.perigo { color: #b91c1c; }
+#recado { font-size: .9rem; color: #166534; }
+#recado.erro { color: #b91c1c; }

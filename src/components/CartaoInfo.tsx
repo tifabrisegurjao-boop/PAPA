@@ -1,3 +1,4 @@
+import type { MouseEvent } from 'react'
 import { ExternalLink, type LucideIcon } from 'lucide-react'
 
 // Cartões informativos em pastéis da família da marca (petróleo, areia, sálvia, terracota, ardósia):
@@ -23,8 +24,8 @@ interface Props {
     titulo?: string
     /** Texto do botãozinho do atalho (padrão "Abrir"). */
     rotuloAtalho?: string
-    /** Roda junto com a abertura do link (ex.: copiar o nº do processo). */
-    aoAbrir?: () => void
+    /** Roda no clique do atalho (ex.: copiar o nº do processo); `preventDefault()` troca a abertura do link por outra ação. */
+    aoAbrir?: (evento: MouseEvent<HTMLAnchorElement>) => void
     cor: keyof typeof CORES
     className?: string
 }

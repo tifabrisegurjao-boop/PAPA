@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="utf-8" />
+        <title>SEI simulado — Acesso Externo - Logar</title>
+        <!-- Ordem de uma aba real: a extensão injeta logica.js e sei.js em document_start, antes de tudo da página. -->
+        <script src="chrome-simulado.js"></script>
+        <script src="/extensao/logica.js"></script>
+        <script src="/extensao/sei.js"></script>
+        <script>
+            // Imita a tela de login do SEI: mesmos ids (frmLogin, txtEmail, pwdSenha, sbmLogin), validação no onsubmit e a
+            // senha "mascarada": quando o HTML termina de carregar, o campo de senha é apagado e trocado por um campo de
+            // texto com bolinhas + um campo escondido (name="pwdSenha") com o valor de verdade.
+            const BOLINHA = '●'
+            function mascarar(campo) {
+                campo.value = ''
+                const real = Object.assign(document.createElement('input'), { type: 'hidden', name: campo.name })
+                const texto = campo.cloneNode()
+                texto.type = 'text'
+                texto.removeAttribute('name')
+                campo.replaceWith(real, texto)
+                const aplicar = () => {
+                    let plano = ''
+                    if (real.value !== '') for (let i = 0; i < texto.value.length; i++) plano += texto.value[i] === BOLINHA ? real.value[i] : texto.value[i]
+                    else plano = texto.value
+                    real.value = plano
+                    texto.value = BOLINHA.repeat(plano.length)
+                }
+                for (const tipo of ['input', 'change', 'keyup', 'blur']) texto.addEventListener(tipo, aplicar)
+            }
+            document.addEventListener('DOMContentLoaded', () => {
+                const parametros = new URLSearchParams(location.search)
+                const estado = seiSimulado.ler()
+                if (parametros.get('acao') === 'usuario_externo_sair') { delete estado.logado; seiSimulado.gravar(estado) }
+                if (estado.servidor?.captcha) document.getElementById('divInfraCaptcha').hidden = false
+                else document.getElementById('divInfraCaptcha').remove() // no SEI o campo só existe quando o captcha é exigido
+                if (parametros.has('erro')) document.getElementById('erro').hidden = false
+                mascarar(document.getElementById('pwdSenha'))
+            })
+            function OnSubmitForm() {
+                const email = document.getElementById('txtEmail').value.trim()
+                if (email === '') { alert('Informe o E-mail.'); return false }
+                if (document.getElementById('pwdSenha').value.trim() === '') { alert('Informe a Senha.'); return false }
+                // "Servidor" de mentira: confere a senha de verdade (campo escondido) e redireciona.
+                const estado = seiSimulado.ler()
+                const senha = document.querySelector('input[type="hidden"][name="pwdSenha"]').value
+                const captchaOk = !estado.servidor?.captcha || document.getElementById('txtInfraCaptcha').value === estado.servidor.captcha
+                estado.envios = (estado.envios ?? 0) + 1
+                estado.ultimoEnvio = { email, senhaConfere: senha === estado.servidor?.senha, captchaOk }
+                const ok = email === estado.servidor?.email && senha === estado.servidor?.senha && captchaOk
+                if (ok) estado.logado = email
+                seiSimulado.gravar(estado)
+                // servidor.demoraMs imita um SEI lento (dá para ver a cortina de "carregando").
+                setTimeout(() => { location.href = ok ? 'lista.html?acao=usuario_externo_controle_acessos' : 'login.html?erro=1' }, estado.servidor?.demoraMs ?? 0)
+                return false
+            }
+        </script>
+    </head>
+    <body>
+        <h1>SEI simulado — acesso para usuários externos</h1>
+        <p id="erro" hidden style="color: #b91c1c">Usuário ou Senha Inválida.</p>
+        <form id="frmLogin" method="post" onsubmit="return OnSubmitForm();" action="login.html">
+            <p><input type="text" id="txtEmail" name="txtEmail" placeholder="E-mail" maxlength="100" /></p>
+            <p><input type="password" id="pwdSenha" name="pwdSenha" placeholder="Senha" class="form-control masked" autocomplete="off" /></p>
+            <div id="divInfraCaptcha" hidden>
+                <label id="lblInfraCaptcha">código da imagem: <b>K7QD</b></label>
+                <input type="text" id="txtInfraCaptcha" name="txtInfraCaptcha" maxlength="4" />
+            </div>
+            <p><button type="submit" id="sbmLogin" name="sbmLogin">Acessar</button></p>
+            <input type="hidden" id="hdnInfraPrefixoCookie" name="hdnInfraPrefixoCookie" value="RO_SEI_" />
+        </form>
+    </body>
+</html>

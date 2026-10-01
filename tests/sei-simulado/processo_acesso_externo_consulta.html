@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="utf-8" />
+        <title>SEI simulado — Acesso Externo com Acompanhamento Integral do Processo</title>
+        <script src="chrome-simulado.js"></script>
+        <script src="/extensao/logica.js"></script>
+        <script src="/extensao/sei.js"></script>
+    </head>
+    <body>
+        <h1>Acesso Externo com Acompanhamento Integral do Processo</h1>
+        <p>Processo: <b id="numero"></b></p>
+        <script>
+            document.getElementById('numero').textContent = new URLSearchParams(location.search).get('numero') ?? '?'
+        </script>
+    </body>
+</html>

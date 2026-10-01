@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="utf-8" />
+        <title>SEI simulado — Controle de Acessos Externos</title>
+        <script src="chrome-simulado.js"></script>
+        <script src="/extensao/logica.js"></script>
+        <script src="/extensao/sei.js"></script>
+    </head>
+    <body>
+        <p>
+            Usuário externo: <b id="usuario"></b> ·
+            <a id="lnkInfraSairSistema" href="login.html?acao=usuario_externo_sair">Sair</a>
+        </p>
+        <h1>Controle de Acessos Externos</h1>
+        <div id="divInfraAreaPaginacaoSuperior"></div>
+        <table>
+            <thead><tr><th>Processo</th><th>Documento para Assinatura</th><th>Tipo</th><th>Liberação</th><th>Validade</th></tr></thead>
+            <tbody id="linhas"></tbody>
+        </table>
+        <script>
+            // Lista de acessos externos da conta logada, em páginas: servidor.paginas[conta] = [[linhas da pág. 1], [pág. 2]…],
+            // cada linha { numero, liberacao, validade }. O nº é o link, como no SEI.
+            const estado = seiSimulado.ler()
+            const paginas = estado.servidor?.paginas?.[estado.logado] ?? [[]]
+            const atual = Math.min(Number(new URLSearchParams(location.search).get('pagina') ?? 1), paginas.length)
+            document.getElementById('usuario').textContent = estado.logado ?? '(ninguém)'
+            const corpo = document.getElementById('linhas')
+            paginas[atual - 1].forEach((linha, i) => {
+                const tr = document.createElement('tr')
+                const celula = texto => Object.assign(document.createElement('td'), { textContent: texto })
+                const tdProcesso = document.createElement('td')
+                tdProcesso.append(Object.assign(document.createElement('a'), {
+                    href: `processo_acesso_externo_consulta.html?id_acesso_externo=${atual}${i}&numero=${encodeURIComponent(linha.numero)}`,
+                    target: '_blank', textContent: linha.numero,
+                }))
+                tr.append(tdProcesso, celula(''), celula('Integral'), celula(linha.liberacao ?? ''), celula(linha.validade ?? ''))
+                corpo.append(tr)
+            })
+            if (atual < paginas.length) {
+                const proxima = Object.assign(document.createElement('a'), { id: 'lnkInfraProximaPaginaSuperior', href: 'javascript:void(0);', title: 'Próxima Página', textContent: '›' })
+                proxima.setAttribute('onclick', `location.href = 'lista.html?acao=usuario_externo_controle_acessos&pagina=${atual + 1}'`)
+                document.getElementById('divInfraAreaPaginacaoSuperior').append(`Página ${atual} de ${paginas.length} `, proxima)
+            }
+        </script>
+    </body>
+</html>

@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from 'react'
+import { useState, type MouseEvent, type ReactNode } from 'react'
 import { ArrowLeft, CalendarDays, Clock, Copy, FileText, Folder, History, KeyRound, Landmark, LogIn, Pencil, Plus, Tag, Trash2 } from 'lucide-react'
 import { estadoAcesso } from '../lib/acesso.ts'
 import { rotaDeAcesso } from '../lib/acessoSei.ts'
+import { abrirNoSeiPelaExtensao, extensaoSeiInstalada } from '../lib/extensaoSei.ts'
 import { montarArvore } from '../lib/arvore.ts'
 import { bloqueioExcluirCliente, bloqueioExcluirProcesso } from '../lib/exclusao.ts'
 import { formatarDataHora } from '../lib/formatacao.ts'
@@ -58,6 +59,24 @@ export default function PainelCliente({
         const id = p.id
         // Sem permissão de área de transferência (navegador antigo, página sem https) o link abre do mesmo jeito.
         navigator.clipboard?.writeText(p.numero).then(() => setCopiado(id), () => setCopiado(undefined))
+    }
+    // Com a extensão "PAPA — Acesso ao SEI" instalada neste navegador, Entrar deixa de abrir o link: a extensão faz o
+    // login com a conta do processo e abre o processo lá dentro. Sem ela, o link abre como sempre.
+    const [temExtensao] = useState(extensaoSeiInstalada)
+    const [pedidoSei, setPedidoSei] = useState<{ id: string; texto: string; erro?: boolean }>()
+    const entrarNoSei = (evento: MouseEvent<HTMLAnchorElement>) => {
+        copiarNumero()
+        if (!p || !rota?.host || !temExtensao) return
+        evento.preventDefault()
+        const id = p.id
+        setPedidoSei({ id, texto: 'Pedindo à extensão para abrir o SEI…' })
+        abrirNoSeiPelaExtensao({ numero: p.numero, conta: rota.conta, host: rota.host }).then(r =>
+            setPedidoSei({
+                id,
+                erro: !r.ok,
+                texto: r.ok ? 'A extensão está entrando no SEI em outra aba e vai abrir este processo.' : r.mensagem ?? 'A extensão não conseguiu abrir o SEI. Use "Abrir sem a extensão".',
+            }),
+        )
     }
     const situacao = p?.situacaoAtual || p?.observacao
 
@@ -189,8 +208,9 @@ export default function PainelCliente({
                             {/* O cartão do número é o atalho para o SEI: clicar nele abre o processo. */}
                             <CartaoInfo icone={FileText} cor="processo" rotulo={p.sistema ?? 'Processo'} valor={p.numero}
                                 detalhe={descreverAcesso(p, acesso)} alerta={expirado} href={rota?.url}
-                                rotuloAtalho={rota?.modo === 'login' ? 'Entrar' : 'Abrir'} aoAbrir={rota?.modo === 'login' ? copiarNumero : undefined}
-                                titulo={rota?.modo === 'login' ? 'Abre o SEI (nova aba) e copia o nº do processo' : 'Abrir o processo no sistema de origem (nova aba)'} />
+                                rotuloAtalho={rota?.modo === 'login' ? 'Entrar' : 'Abrir'} aoAbrir={rota?.modo === 'login' ? entrarNoSei : undefined}
+                                titulo={rota?.modo !== 'login' ? 'Abrir o processo no sistema de origem (nova aba)'
+                                    : temExtensao && rota.host ? 'A extensão PAPA entra no SEI e abre este processo (nova aba)' : 'Abre o SEI (nova aba) e copia o nº do processo'} />
                             <CartaoInfo icone={Folder} cor="pasta" rotulo="Pasta no OneDrive" valor={cliente.linkPasta ? 'Processos do cliente' : 'Sem link'}
                                 detalhe={[cliente.numeroNexus ? `Nº Nexus ${cliente.numeroNexus}` : 'Sem nº Nexus', cliente.linkPasta ? 'Documentos do cliente' : 'Cadastre o link (lápis ao lado do nome)'].join(' · ')}
                                 href={cliente.linkPasta} titulo="Abrir a pasta do cliente no OneDrive (nova aba)" />
@@ -204,13 +224,25 @@ export default function PainelCliente({
                                 <KeyRound size={16} className="shrink-0 text-fg-700" />
                                 <span className="min-w-0 flex-1">
                                     Abre com <strong>login no SEI</strong>{rota.conta ? <> — conta <strong className="break-all">{rota.conta}</strong></> : ' (conta de acesso não cadastrada: preencha no lápis)'}.{' '}
-                                    {copiado === p.id ? <span className="font-semibold text-salvia-800">Nº copiado: depois de entrar, cole na lista de processos.</span> : 'Ao clicar em Entrar, o nº é copiado para você colar lá dentro.'}
+                                    {temExtensao && rota.host ? (
+                                        pedidoSei?.id === p.id
+                                            ? <span className={`font-semibold ${pedidoSei.erro ? 'text-rose-700' : 'text-salvia-800'}`}>{pedidoSei.texto}</span>
+                                            : <>Extensão PAPA instalada: <strong>Entrar</strong> faz o login e já abre este processo.</>
+                                    ) : copiado === p.id
+                                        ? <span className="font-semibold text-salvia-800">Nº copiado: depois de entrar, cole na lista de processos.</span>
+                                        : 'Ao clicar em Entrar, o nº é copiado para você colar lá dentro.'}
                                 </span>
                                 <button type="button" onClick={copiarNumero}
                                     className="flex items-center gap-1.5 rounded-md border border-fg-300 bg-white px-2.5 py-1 text-xs font-semibold text-fg-700 hover:border-ouro-500 hover:bg-ouro-100">
-                                    <Copy size={13} /> Copiar nº
+                                    <Copy size={13} /> {copiado === p.id ? 'Nº copiado' : 'Copiar nº'}
                                 </button>
-                                {rota.urlLogin && rota.urlLogin !== rota.url && (
+                                {/* Com a extensão, o cartão é dela: este é o caminho manual. Sem ela, é o atalho da tela de login quando o link guardado é outro. */}
+                                {temExtensao && rota.host && rota.url ? (
+                                    <a href={rota.url} target="_blank" rel="noopener noreferrer" onClick={copiarNumero}
+                                        className="flex items-center gap-1.5 rounded-md border border-fg-300 bg-white px-2.5 py-1 text-xs font-semibold text-fg-700 hover:border-ouro-500 hover:bg-ouro-100">
+                                        <LogIn size={13} /> Abrir sem a extensão
+                                    </a>
+                                ) : rota.urlLogin && rota.urlLogin !== rota.url && (
                                     <a href={rota.urlLogin} target="_blank" rel="noopener noreferrer" onClick={copiarNumero}
                                         className="flex items-center gap-1.5 rounded-md border border-fg-300 bg-white px-2.5 py-1 text-xs font-semibold text-fg-700 hover:border-ouro-500 hover:bg-ouro-100">
                                         <LogIn size={13} /> Tela de login do SEI
