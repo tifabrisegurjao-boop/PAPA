@@ -1,9 +1,9 @@
-import { useState, type MouseEvent, type ReactNode } from 'react'
-import { ArrowLeft, CalendarDays, Clock, Copy, FileText, Folder, History, KeyRound, Landmark, LogIn, Pencil, Plus, Tag, Trash2 } from 'lucide-react'
-import { estadoAcesso } from '../lib/acesso.ts'
+import { useEffect, useState, type MouseEvent, type ReactNode } from 'react'
+import { ArrowLeft, CalendarDays, Clock, Copy, FileText, Filter, Folder, History, KeyRound, Landmark, LogIn, Pencil, Plus, Tag, Trash2 } from 'lucide-react'
+import { comLiberacao, estadoAcesso } from '../lib/acesso.ts'
 import { rotaDeAcesso } from '../lib/acessoSei.ts'
 import { abrirNoSeiPelaExtensao, versaoDaExtensaoSei } from '../lib/extensaoSei.ts'
-import { montarArvore } from '../lib/arvore.ts'
+import { montarArvoreFiltrada } from '../lib/arvore.ts'
 import { bloqueioExcluirCliente, bloqueioExcluirProcesso } from '../lib/exclusao.ts'
 import { formatarDataHora } from '../lib/formatacao.ts'
 import type { Cliente, Processo } from '../tipos.ts'
@@ -23,6 +23,10 @@ interface Props {
     /** Todos os ids do banco, inclusive os da lixeira: um cadastro novo não pode reusar o id de um excluído. */
     idsClientes: string[]
     idsProcessos: string[]
+    /** Filtro "Com acesso" ligado (estado no App): árvore e cartões mostram só os processos com acesso valendo hoje. */
+    soLiberados: boolean
+    /** Desliga o filtro (o "ver todos" do aviso em cima da árvore). */
+    aoVerTodos: () => void
     onSalvarCliente: (cliente: Cliente) => Promise<void>
     onSalvarProcesso: (processo: Processo) => Promise<void>
     /** Exclusão lógica: o registro vai para a Lixeira da tela inicial (dá para restaurar). */
@@ -38,17 +42,25 @@ type Modo =
 // Tela 2 — árvore processual à esquerda (como no SEI), cartões e situação atual do processo selecionado à direita.
 // O lápis (no cliente e em cada processo) e o "Novo processo" abrem o formulário no lugar dos cartões.
 export default function PainelCliente({
-    cliente, processos, processoInicialId, todosClientes, todosProcessos, idsClientes, idsProcessos, onSalvarCliente, onSalvarProcesso, onExcluir,
+    cliente, processos, processoInicialId, todosClientes, todosProcessos, idsClientes, idsProcessos, soLiberados, aoVerTodos, onSalvarCliente, onSalvarProcesso, onExcluir,
 }: Props) {
-    const { raizes, orfaos } = montarArvore(processos)
+    // O endereço (#/cliente/<id>/<processo>) aponta para um processo que o filtro esconderia: o endereço manda — este painel
+    // já abre mostrando tudo e o filtro é desligado, para a lista acompanhar. Ninguém fica olhando o processo errado.
+    const pedidoEscondido = soLiberados && !!processoInicialId && processos.some(x => x.id === processoInicialId && !comLiberacao(x))
+    useEffect(() => { if (pedidoEscondido) aoVerTodos() }, [pedidoEscondido]) // eslint-disable-line react-hooks/exhaustive-deps
+    // Filtro ligado: árvore, seleção e cartões enxergam só os processos com acesso válido — os outros ficam como se não
+    // existissem (nenhum vermelho na tela). Formulários, validações e bloqueios continuam com a lista inteira.
+    const filtrado = soLiberados && !pedidoEscondido
+    const visiveis = filtrado ? processos.filter(x => comLiberacao(x)) : processos
+    const { raizes, orfaos, origemOculta } = montarArvoreFiltrada(processos, visiveis)
     const [selecionadoId, setSelecionadoId] = useState(
-        processoInicialId && processos.some(x => x.id === processoInicialId) ? processoInicialId : raizes[0]?.processo.id,
+        processoInicialId && visiveis.some(x => x.id === processoInicialId) ? processoInicialId : raizes[0]?.processo.id,
     )
     const [modo, setModo] = useState<Modo>({ tipo: 'ver' })
-    // Selecionado que sumiu (excluído agora, por aqui ou por outra pessoa) cai no primeiro processo principal.
-    const idSelecionado = selecionadoId && processos.some(x => x.id === selecionadoId) ? selecionadoId : raizes[0]?.processo.id
-    const p = processos.find(x => x.id === idSelecionado)
-    const relacionados = processos.filter(x => x.vinculo === 'relacionado')
+    // Selecionado que sumiu (excluído agora, por aqui ou por outra pessoa; ou escondido pelo filtro) cai no primeiro da árvore.
+    const idSelecionado = selecionadoId && visiveis.some(x => x.id === selecionadoId) ? selecionadoId : raizes[0]?.processo.id
+    const p = visiveis.find(x => x.id === idSelecionado)
+    const relacionados = visiveis.filter(x => x.vinculo === 'relacionado')
     const acesso = p ? estadoAcesso(p) : 'desconhecido'
     const expirado = acesso === 'expirado'
     const rota = p ? rotaDeAcesso(p) : undefined
@@ -87,6 +99,9 @@ export default function PainelCliente({
     }
     const salvarProcesso = async (processo: Processo) => {
         await onSalvarProcesso(processo)
+        // Salvou um processo que o filtro esconderia (novo sem acesso, ou o acesso deixou de valer)? O filtro se desliga: o que a pessoa
+        // acabou de salvar não pode "sumir" da árvore.
+        if (filtrado && !comLiberacao(processo)) aoVerTodos()
         setSelecionadoId(processo.id)
         setModo({ tipo: 'ver' })
     }
@@ -112,11 +127,24 @@ export default function PainelCliente({
                 <ArrowLeft size={16} /> Voltar para a lista de clientes
             </a>
             <aside className="h-fit rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                {/* Filtro ligado: avisa quantos processos estão à vista e dá a saída ("ver todos"), para ninguém achar que sumiram. */}
+                {filtrado && (
+                    <p className="mb-3 flex items-center gap-1.5 rounded-md border border-petroleo-200 bg-petroleo-100/60 px-2.5 py-1.5 text-[11px] leading-tight text-fg-800">
+                        <Filter size={12} className="shrink-0 text-fg-700" />
+                        <span className="min-w-0 flex-1">Só com acesso: <strong>{visiveis.length} de {processos.length}</strong></span>
+                        <button type="button" onClick={aoVerTodos} title="Desligar o filtro e mostrar todos os processos"
+                            className="shrink-0 rounded font-semibold text-fg-700 underline hover:text-fg-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-ouro-500/70">
+                            ver todos
+                        </button>
+                    </p>
+                )}
                 {raizes.length ? (
-                    <ArvoreProcessos raizes={raizes} orfaos={orfaos} selecionadoId={idSelecionado} onSelecionar={selecionar}
+                    <ArvoreProcessos raizes={raizes} orfaos={orfaos} origemOculta={origemOculta} semExpirados={filtrado} selecionadoId={idSelecionado} onSelecionar={selecionar}
                         onEditar={id => { setSelecionadoId(id); setModo({ tipo: 'editarProcesso', id }) }} />
                 ) : (
-                    <p className="text-sm text-slate-500">Nenhum processo cadastrado para este cliente.</p>
+                    <p className="text-sm text-slate-500">
+                        {filtrado && processos.length > 0 ? 'Nenhum processo deste cliente está com acesso válido hoje.' : 'Nenhum processo cadastrado para este cliente.'}
+                    </p>
                 )}
                 <div className="mt-4 border-t border-slate-200 pt-4">
                     <button onClick={() => setModo({ tipo: 'novoProcesso', origemId: undefined })}
@@ -297,7 +325,16 @@ export default function PainelCliente({
                         </div>
                     </>
                 )}
-                {modo.tipo === 'ver' && !p && <p className="text-slate-500">Selecione um processo na árvore ou cadastre o primeiro.</p>}
+                {modo.tipo === 'ver' && !p && (
+                    filtrado && processos.length > 0 ? (
+                        <p className="text-slate-500">
+                            Nenhum processo deste cliente está com acesso válido hoje.{' '}
+                            <button type="button" onClick={aoVerTodos} className="font-medium text-fg-700 underline">
+                                Ver {processos.length === 1 ? 'o processo dele' : `os ${processos.length} processos dele`}
+                            </button>
+                        </p>
+                    ) : <p className="text-slate-500">Selecione um processo na árvore ou cadastre o primeiro.</p>
+                )}
             </section>
         </div>
     )

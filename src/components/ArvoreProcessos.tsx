@@ -11,12 +11,19 @@ interface Props {
     onSelecionar: (id: string) => void
     /** Lápis ao lado do número: abre o formulário de edição daquele processo. */
     onEditar?: (id: string) => void
+    /** Vista "só com acesso": não há processo expirado na árvore, então a legenda do vermelho sai. */
+    semExpirados?: boolean
+    /** Desdobramentos cuja origem o filtro escondeu (id → nº da origem; ver `montarArvoreFiltrada`). */
+    origemOculta?: ReadonlyMap<string, string>
 }
+
+const SEM_ORIGEM_OCULTA: ReadonlyMap<string, string> = new Map()
 
 // Árvore como a do SEI: cada processo principal é um ramo (pasta ouro, cheia); recursos, comunicações e demais
 // desdobramentos ficam embaixo (pasta azul, cheia). Ramo com filhos recolhe/expande pela seta.
 // Número em vermelho + cadeado = acesso externo expirado.
-export default function ArvoreProcessos({ raizes, orfaos, selecionadoId, onSelecionar, onEditar }: Props) {
+// Na vista filtrada, o desdobramento que ficou sem a origem aparece solto, mas continua azul e diz de qual processo vem.
+export default function ArvoreProcessos({ raizes, orfaos, selecionadoId, onSelecionar, onEditar, semExpirados, origemOculta = SEM_ORIGEM_OCULTA }: Props) {
     const hoje = new Date()
     const [recolhidos, setRecolhidos] = useState<Set<string>>(new Set())
     const idsComFilhos = comFilhos(raizes)
@@ -48,14 +55,15 @@ export default function ArvoreProcessos({ raizes, orfaos, selecionadoId, onSelec
             )}
             <ul className="space-y-2">
                 {raizes.map(no => (
-                    <Ramo key={no.processo.id} no={no} principal selecionadoId={selecionadoId} onSelecionar={onSelecionar} onEditar={onEditar}
+                    <Ramo key={no.processo.id} no={no} principal={!origemOculta.has(no.processo.id)} origemOculta={origemOculta.get(no.processo.id)}
+                        selecionadoId={selecionadoId} onSelecionar={onSelecionar} onEditar={onEditar}
                         hoje={hoje} recolhidos={recolhidos} alternar={alternar} />
                 ))}
             </ul>
             <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-slate-200 pt-3 text-[11px] text-slate-500">
                 <span className="flex items-center gap-1"><Folder size={14} className="fill-ouro-500 text-ouro-500" /> principal</span>
                 <span className="flex items-center gap-1"><Folder size={14} className="fill-sky-600 text-sky-600" /> desdobramento</span>
-                <span className="flex items-center gap-1 font-medium text-rose-700"><Lock size={12} /> acesso expirado</span>
+                {!semExpirados && <span className="flex items-center gap-1 font-medium text-rose-700"><Lock size={12} /> acesso expirado</span>}
             </p>
             {orfaos.length > 0 && (
                 <p className="mt-3 flex gap-2 rounded bg-amber-50 p-3 text-xs text-amber-800">
@@ -89,7 +97,12 @@ const contar = (no: NoArvore): number => no.filhos.reduce((s, f) => s + 1 + cont
 
 interface RamoProps {
     no: NoArvore
+    /** Processo principal (pasta ouro). Falso = desdobramento (pasta azul), pendurado ou solto. */
     principal?: boolean
+    /** Está pendurado em outro ramo: desenha as linhas pontilhadas até a origem. */
+    aninhado?: boolean
+    /** Nº da origem que o filtro escondeu (só em desdobramento solto). */
+    origemOculta?: string
     selecionadoId?: string
     onSelecionar: (id: string) => void
     onEditar?: (id: string) => void
@@ -98,7 +111,7 @@ interface RamoProps {
     alternar: (id: string) => void
 }
 
-function Ramo({ no, principal, selecionadoId, onSelecionar, onEditar, hoje, recolhidos, alternar }: RamoProps) {
+function Ramo({ no, principal, aninhado, origemOculta, selecionadoId, onSelecionar, onEditar, hoje, recolhidos, alternar }: RamoProps) {
     const { processo, filhos } = no
     const ativo = processo.id === selecionadoId
     const expirado = semAcesso(processo, hoje)
@@ -109,7 +122,7 @@ function Ramo({ no, principal, selecionadoId, onSelecionar, onEditar, hoje, reco
         ? ativo ? 'fill-ouro-300 text-ouro-700' : 'fill-ouro-500 text-ouro-500'
         : ativo ? 'fill-sky-200 text-sky-700' : 'fill-sky-600 text-sky-600'
     const corNumero = expirado ? 'text-rose-700' : principal ? 'text-fg-700' : 'text-slate-800'
-    const corda = principal ? '' :
+    const corda = !aninhado ? '' :
         "relative before:absolute before:-left-4 before:top-0 before:h-full before:border-l before:border-dotted before:border-slate-400 before:content-[''] last:before:h-[1.15rem] " +
         "after:absolute after:-left-4 after:top-[1.15rem] after:w-3 after:border-t after:border-dotted after:border-slate-400 after:content-['']"
     return (
@@ -140,6 +153,11 @@ function Ramo({ no, principal, selecionadoId, onSelecionar, onEditar, hoje, reco
                                 {processo.vinculo === 'relacionado' && <span className="rounded bg-slate-200 px-1 text-[10px] uppercase tracking-wide text-slate-600">relacionado</span>}
                             </span>
                         )}
+                        {origemOculta !== undefined && (
+                            <span className="block truncate text-[11px] text-slate-500" title="O processo de origem está sem acesso válido e ficou fora do filtro">
+                                desdobramento de {origemOculta || 'processo fora do filtro'}
+                            </span>
+                        )}
                     </span>
                 </button>
                 {onEditar && (
@@ -154,7 +172,7 @@ function Ramo({ no, principal, selecionadoId, onSelecionar, onEditar, hoje, reco
                 // ramal horizontal até a sua pasta (::after); o último filho encerra a vertical na altura do ramal.
                 <ul className="ml-[1.35rem] space-y-1 pl-4">
                     {filhos.map(filho => (
-                        <Ramo key={filho.processo.id} no={filho} selecionadoId={selecionadoId} onSelecionar={onSelecionar} onEditar={onEditar}
+                        <Ramo key={filho.processo.id} no={filho} aninhado selecionadoId={selecionadoId} onSelecionar={onSelecionar} onEditar={onEditar}
                             hoje={hoje} recolhidos={recolhidos} alternar={alternar} />
                     ))}
                 </ul>

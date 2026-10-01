@@ -28,7 +28,13 @@ export function estadoAcesso(p: Processo, hoje = new Date()): EstadoAcesso {
 export const semAcesso = (p: Processo, hoje?: Date) => estadoAcesso(p, hoje) === 'expirado'
 
 /**
- * "Com liberação" = o acesso externo está valendo hoje: término hoje ou depois, ou — sem data — situação ATIVO.
+ * Filtro das telas (01/10/2026; na tela é o botão "Com acesso"): tudo, ou só o que está com acesso externo valendo hoje —
+ * como se o resto não existisse.
+ */
+export type FiltroAcesso = 'todos' | 'liberacao'
+
+/**
+ * "Com liberação" (na tela: "Com acesso") = o acesso externo está valendo hoje: término hoje ou depois, ou — sem data — situação ATIVO.
  * Acesso sem informação, processo físico e acesso expirado ficam de fora.
  */
 export function comLiberacao(p: Processo, hoje?: Date): boolean {

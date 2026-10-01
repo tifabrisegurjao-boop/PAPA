@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import type { FiltroAcesso } from './lib/acesso.ts'
 import { carregarBase } from './lib/dados.ts'
 import { separarExcluidos } from './lib/exclusao.ts'
 import { repositorioMemoria, type Repositorio } from './lib/repositorio.ts'
@@ -22,6 +23,13 @@ const SEM_LOGIN = DEMO || (import.meta.env.DEV && new URLSearchParams(window.loc
 // No build de produção não existe base em JSON, então essa opção não pode chegar lá.
 const BANCO_JSON = DEMO || SEM_LOGIN || (import.meta.env.DEV && import.meta.env.VITE_BANCO === 'json')
 
+// Filtro "Com acesso" (botão ao lado do título): vale para a lista e para o painel do cliente; lembrado nesta aba
+// (abrir um cliente e voltar mantém). Ligado, só aparece o que está com acesso externo valendo hoje — nenhum vermelho.
+const CHAVE_FILTRO = 'papa:filtro'
+function lerFiltro(): FiltroAcesso {
+    try { return sessionStorage.getItem(CHAVE_FILTRO) === 'liberacao' ? 'liberacao' : 'todos' } catch { return 'todos' }
+}
+
 // Rotas por hash (#/, #/cliente/<id> e #/cliente/<id>/<processo>): funcionam em hospedagem estática sem configurar o servidor.
 function useRota(): Rota {
     const [hash, setHash] = useState(window.location.hash)
@@ -43,6 +51,11 @@ export default function App() {
     const [base, setBase] = useState<Base | null>(null)
     const [erro, setErro] = useState('')
     const [termo, setTermo] = useState('')
+    const [filtro, setFiltro] = useState<FiltroAcesso>(lerFiltro)
+    const mudarFiltro = (novo: FiltroAcesso) => {
+        setFiltro(novo)
+        try { sessionStorage.setItem(CHAVE_FILTRO, novo) } catch { /* sem armazenamento: só não lembra */ }
+    }
     const rota = useRota()
     // Firebase (Auth e Firestore) entra por import() dinâmico: no build da demo (SEM_LOGIN/BANCO_JSON constantes) esses ramos
     // são código morto e o bundle público não leva nem inicializa o projeto real.
@@ -102,6 +115,7 @@ export default function App() {
     else if (rota.tela === 'lista')
         conteudo = (
             <ListaClientes base={separada.ativa} lixeira={separada.lixeira} idsClientes={base.clientes.map(c => c.id)} termo={termo}
+                filtro={filtro} aoMudarFiltro={mudarFiltro}
                 onSalvarCliente={c => repositorio.salvarCliente(c)} onRestaurar={(tipo, r) => repositorio.definirExclusao(tipo, r, false)} />
         )
     else if (cliente)
@@ -115,6 +129,8 @@ export default function App() {
                 todosProcessos={separada.ativa.processos}
                 idsClientes={base.clientes.map(c => c.id)}
                 idsProcessos={base.processos.map(p => p.id)}
+                soLiberados={filtro === 'liberacao'}
+                aoVerTodos={() => mudarFiltro('todos')}
                 onSalvarCliente={c => repositorio.salvarCliente(c)}
                 onSalvarProcesso={p => repositorio.salvarProcesso(p)}
                 onExcluir={(tipo, r) => repositorio.definirExclusao(tipo, r, true)}
