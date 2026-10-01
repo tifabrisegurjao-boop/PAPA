@@ -30,6 +30,7 @@ Processo com **link direto** (o que chega por e-mail) continua abrindo pelo link
 - As senhas ficam **só neste navegador** (armazenamento da extensão). Não vão para o PAPA, para o Firestore nem para a
   internet, e só são digitadas na tela de login do SEI para o qual foram salvas, na aba que o PAPA abriu.
 - **Uma tentativa de login por clique.** Se o SEI recusar, ela para e avisa — não tenta de novo, para não bloquear a conta.
+- Se ela preencher o login mas não conseguir enviar sozinha, pede o seu clique em ENTRAR e **continua depois** (abre o processo).
 - **Não resolve captcha.** Se o SEI pedir o código da imagem, ela preenche e-mail e senha, tira a tela azul e espera você
   digitar o código; depois continua e abre o processo.
 - Só age na aba que ela mesma abriu a pedido do PAPA. Nas páginas do SEI que você abre por conta própria, fica parada.
@@ -45,6 +46,7 @@ Para incluir outro: acrescente em `HOSTS` (`logica.js`) e em `matches` (`manifes
 ## Se não funcionar
 | O que aparece | O que fazer |
 |---|---|
+| "Preenchi o login… Clique em ENTRAR" | O SEI não aceitou o envio automático nesta tela. Clique em ENTRAR: a extensão continua e abre o processo. Se acontecer sempre, mande um print do aviso (a linha "Detalhe técnico" diz o que ela viu). |
 | "A extensão PAPA não tem a senha da conta X" | Cadastre a conta na tela de contas (ícone da extensão). O e-mail tem de ser igual ao do processo. |
 | "O SEI não aceitou o login da conta X" | A senha salva está errada ou mudou: use **Trocar senha** na tela de contas. |
 | "Não achei o processo N na lista de acessos" | O processo é de outra conta, ou o acesso externo expirou. Confira a conta de acesso no lápis do processo. |

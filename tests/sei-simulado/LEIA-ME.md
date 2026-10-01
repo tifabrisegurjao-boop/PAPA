@@ -20,4 +20,7 @@ location.href = '/tests/sei-simulado/login.html#papa-sei'
 
 Deve terminar na página do processo `0010.222222/2026-22`, e `JSON.parse(localStorage.papaSeiSimulado).diario` mostra cada
 passo. Variações: `servidor.senha` diferente da conta (login recusado: um envio só), `servidor.captcha: 'K7QD'` (para e
-espera), processo fora da lista, `logado` com outra conta antes de começar (sai e entra com a certa).
+espera), processo fora da lista, `logado` com outra conta antes de começar (sai e entra com a certa),
+`servidor.mascara: 'sem-escondido'` (a senha mascarada sem campo escondido, como no SEI/RO de verdade),
+`servidor.botao: 'solto'` (botão que envia sem o evento `submit`: não pode haver envio em dobro) e
+`servidor.barrarEnvios: 1` (a validação recusa o envio automático: modo manual, e o fluxo continua depois do clique).

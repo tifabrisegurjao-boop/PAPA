@@ -179,6 +179,27 @@ test('extensão: a senha só sai no passo de login, para a aba do pedido, no SEI
     assert.equal(d.pedidos.has(77), false)
 })
 
+test('extensão: envio automático não saiu → modo manual: o pedido continua e o processo abre depois do clique da pessoa', async () => {
+    const d = deposito()
+    await tratar({ tipo: 'abrir', numero: '0010.222222/2026-22', conta: 'ana@escritorio.com', host: RO }, doPapa, d, T0)
+    assert.equal((await tratar({ tipo: 'passo', pagina: pagina({ temLogin: true }) }, doSei(), d, T0 + 1)).acao, 'preencher-login')
+    assert.deepEqual(await tratar({ tipo: 'manual' }, doSei(), d, T0 + 2), { ok: true })
+    assert.equal((d.pedidos.get(77) as { manual: boolean }).manual, true)
+    // a pessoa demora mais que o prazo normal (2 min) para clicar: em modo manual o pedido ainda vale
+    const lista = await tratar({ tipo: 'passo', pagina: pagina({ links: [link(4, '0010.222222/2026-22')] }) }, doSei('/sei/controlador_externo.php?acao=usuario_externo_controle_acessos'), d, T0 + VALIDADE_MS + 60_000)
+    assert.equal(lista.acao, 'abrir-processo')
+    // se depois do clique dela a tela de login voltar (sem captcha), a senha salva está errada: para, sem preencher de novo
+    const d2 = deposito()
+    await tratar({ tipo: 'abrir', numero: '0010.222222/2026-22', conta: 'ana@escritorio.com', host: RO }, doPapa, d2, T0)
+    await tratar({ tipo: 'passo', pagina: pagina({ temLogin: true }) }, doSei(), d2, T0 + 1)
+    await tratar({ tipo: 'manual' }, doSei(), d2, T0 + 2)
+    const recusado = await tratar({ tipo: 'passo', pagina: pagina({ temLogin: true }) }, doSei(), d2, T0 + 3)
+    assert.equal(recusado.acao, 'parar')
+    assert.equal('credencial' in recusado, false)
+    // aba sem pedido não entra em modo manual
+    assert.deepEqual(await tratar({ tipo: 'manual' }, { ...doSei(), tabId: 99 }, d, T0), { ok: false })
+})
+
 test('extensão: cancelar apaga o pedido da aba; conta removida no meio do caminho para com aviso', async () => {
     const d = deposito()
     await tratar({ tipo: 'abrir', numero: '0010.222222/2026-22', conta: 'ana@escritorio.com', host: RO }, doPapa, d, T0)

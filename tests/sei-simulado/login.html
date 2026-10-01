@@ -9,16 +9,30 @@
         <script src="/extensao/sei.js"></script>
         <script>
             // Imita a tela de login do SEI: mesmos ids (frmLogin, txtEmail, pwdSenha, sbmLogin), validação no onsubmit e a
-            // senha "mascarada": quando o HTML termina de carregar, o campo de senha é apagado e trocado por um campo de
-            // texto com bolinhas + um campo escondido (name="pwdSenha") com o valor de verdade.
+            // senha "mascarada" — quando o HTML termina de carregar, o campo de senha é apagado e trocado por um campo de
+            // texto com bolinhas, e o valor de verdade fica guardado em outro lugar. Variações (servidor.*):
+            //   mascara: 'escondido' (padrão: campo escondido name="pwdSenha") | 'sem-escondido' (guardado só em memória,
+            //            como no SEI/RO de verdade: não há campo escondido para conferir)
+            //   botao: 'solto'  → o botão não é "submit": envia o formulário por conta própria, sem o evento "submit"
+            //   barrarEnvios: N → a validação recusa os N primeiros envios (o formulário não sai)
+            //   captcha: 'K7QD' → exige o código da imagem
             const BOLINHA = '●'
-            function mascarar(campo) {
+            let senhaDeVerdade = () => document.querySelector('input[type="hidden"][name="pwdSenha"]')?.value ?? document.getElementById('pwdSenha').value
+            function mascarar(campo, semEscondido) {
                 campo.value = ''
-                const real = Object.assign(document.createElement('input'), { type: 'hidden', name: campo.name })
                 const texto = campo.cloneNode()
                 texto.type = 'text'
-                texto.removeAttribute('name')
-                campo.replaceWith(real, texto)
+                let real
+                if (semEscondido) {
+                    let guardado = ''
+                    real = { get value() { return guardado }, set value(v) { guardado = v } }
+                    campo.replaceWith(texto)
+                    senhaDeVerdade = () => guardado
+                } else {
+                    real = Object.assign(document.createElement('input'), { type: 'hidden', name: campo.name })
+                    texto.removeAttribute('name')
+                    campo.replaceWith(real, texto)
+                }
                 const aplicar = () => {
                     let plano = ''
                     if (real.value !== '') for (let i = 0; i < texto.value.length; i++) plano += texto.value[i] === BOLINHA ? real.value[i] : texto.value[i]
@@ -35,38 +49,46 @@
                 if (estado.servidor?.captcha) document.getElementById('divInfraCaptcha').hidden = false
                 else document.getElementById('divInfraCaptcha').remove() // no SEI o campo só existe quando o captcha é exigido
                 if (parametros.has('erro')) document.getElementById('erro').hidden = false
-                mascarar(document.getElementById('pwdSenha'))
+                if (estado.servidor?.botao === 'solto') {
+                    const botao = document.getElementById('sbmLogin')
+                    botao.type = 'button'
+                    botao.id = 'btnEntrar'
+                    botao.addEventListener('click', () => { if (OnSubmitForm()) document.getElementById('frmLogin').submit() })
+                }
+                mascarar(document.getElementById('pwdSenha'), estado.servidor?.mascara === 'sem-escondido')
             })
             function OnSubmitForm() {
                 const email = document.getElementById('txtEmail').value.trim()
                 if (email === '') { alert('Informe o E-mail.'); return false }
                 if (document.getElementById('pwdSenha').value.trim() === '') { alert('Informe a Senha.'); return false }
-                // "Servidor" de mentira: confere a senha de verdade (campo escondido) e redireciona.
                 const estado = seiSimulado.ler()
-                const senha = document.querySelector('input[type="hidden"][name="pwdSenha"]').value
+                if ((estado.servidor?.barrarEnvios ?? 0) > 0) { estado.servidor.barrarEnvios--; estado.barrados = (estado.barrados ?? 0) + 1; seiSimulado.gravar(estado); return false }
+                // "Servidor" de mentira: confere a senha de verdade e deixa anotado para onde a resposta redireciona.
+                const senha = senhaDeVerdade()
                 const captchaOk = !estado.servidor?.captcha || document.getElementById('txtInfraCaptcha').value === estado.servidor.captcha
                 estado.envios = (estado.envios ?? 0) + 1
                 estado.ultimoEnvio = { email, senhaConfere: senha === estado.servidor?.senha, captchaOk }
                 const ok = email === estado.servidor?.email && senha === estado.servidor?.senha && captchaOk
                 if (ok) estado.logado = email
+                estado.destino = ok ? 'lista.html?acao=usuario_externo_controle_acessos' : 'login.html?erro=1'
                 seiSimulado.gravar(estado)
-                // servidor.demoraMs imita um SEI lento (dá para ver a cortina de "carregando").
-                setTimeout(() => { location.href = ok ? 'lista.html?acao=usuario_externo_controle_acessos' : 'login.html?erro=1' }, estado.servidor?.demoraMs ?? 0)
-                return false
+                // Nada do formulário vai para o endereço da página seguinte (o envio do simulado é por GET).
+                for (const campo of document.querySelectorAll('#frmLogin input, #frmLogin button')) campo.disabled = true
+                return true
             }
         </script>
     </head>
     <body>
         <h1>SEI simulado — acesso para usuários externos</h1>
         <p id="erro" hidden style="color: #b91c1c">Usuário ou Senha Inválida.</p>
-        <form id="frmLogin" method="post" onsubmit="return OnSubmitForm();" action="login.html">
+        <form id="frmLogin" method="get" onsubmit="return OnSubmitForm();" action="servidor.html">
             <p><input type="text" id="txtEmail" name="txtEmail" placeholder="E-mail" maxlength="100" /></p>
             <p><input type="password" id="pwdSenha" name="pwdSenha" placeholder="Senha" class="form-control masked" autocomplete="off" /></p>
             <div id="divInfraCaptcha" hidden>
                 <label id="lblInfraCaptcha">código da imagem: <b>K7QD</b></label>
                 <input type="text" id="txtInfraCaptcha" name="txtInfraCaptcha" maxlength="4" />
             </div>
-            <p><button type="submit" id="sbmLogin" name="sbmLogin">Acessar</button></p>
+            <p><button type="submit" id="sbmLogin" name="sbmLogin">ENTRAR</button></p>
             <input type="hidden" id="hdnInfraPrefixoCookie" name="hdnInfraPrefixoCookie" value="RO_SEI_" />
         </form>
     </body>

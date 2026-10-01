@@ -171,6 +171,15 @@
                 await deposito.gravarIntencao(remetente.tabId, d.intencao)
                 return resposta
             }
+            // O login foi preenchido, mas quem vai clicar em ENTRAR é a pessoa (o envio automático não saiu): o pedido
+            // continua valendo, com o prazo maior, para a extensão abrir o processo depois do clique dela.
+            case 'manual': {
+                if (remetente?.tabId == null || remetente.frameId !== 0) return { ok: false }
+                const atual = await deposito.lerIntencao(remetente.tabId)
+                if (!atual) return { ok: false }
+                await deposito.gravarIntencao(remetente.tabId, { ...atual, manual: true, atualizadoEm: agora })
+                return { ok: true }
+            }
             case 'cancelar':
                 if (remetente?.tabId != null) await deposito.gravarIntencao(remetente.tabId, null)
                 return { ok: true }

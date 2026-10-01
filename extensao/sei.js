@@ -53,15 +53,18 @@
     document.documentElement.appendChild(cortina)
 
     let encerrado = false
-    /** Tira a cortina. Com `mensagem`, deixa um aviso no canto; `manterAviso` conserva o fluxo para a página seguinte. */
-    function liberar(mensagem, { manterAviso = false } = {}) {
+    /**
+     * Tira a cortina. Com `mensagem`, deixa um aviso no canto; `manterAviso` conserva o fluxo para a página seguinte;
+     * `detalhe` é uma linha técnica miúda (o que a extensão viu na tela, sem nenhum dado) para quem for dar suporte.
+     */
+    function liberar(mensagem, { manterAviso = false, detalhe: tecnico = '' } = {}) {
         encerrado = true
         cortina.remove()
         if (!manterAviso) gravarAviso(false)
-        if (mensagem) avisar(mensagem)
+        if (mensagem) avisar(mensagem, { detalhe: tecnico })
     }
 
-    function avisar(texto, { somePorSi = false } = {}) {
+    function avisar(texto, { somePorSi = false, detalhe: tecnico = '' } = {}) {
         const caixa = document.createElement('div')
         caixa.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;'
         const r = caixa.attachShadow({ mode: 'closed' })
@@ -70,10 +73,13 @@
                 .aviso { max-width: 24rem; display: flex; gap: .75rem; align-items: flex-start; padding: .8rem 1rem; border-radius: .6rem; background: #173a4c; color: #fff;
                     font: .875rem/1.45 system-ui, "Segoe UI", sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.3); border-left: 4px solid #d1cda9; }
                 b { display: block; font-size: .7rem; letter-spacing: .18em; text-transform: uppercase; color: #d1cda9; margin-bottom: .2rem; }
+                small { display: block; margin-top: .45rem; font-size: .7rem; line-height: 1.35; color: #9fb4bf; overflow-wrap: anywhere; }
+                small:empty { display: none; }
                 button { font: inherit; color: #d1cda9; background: none; border: 0; cursor: pointer; padding: 0 .2rem; font-size: 1.1rem; line-height: 1; }
             </style>
-            <div class="aviso" role="status"><div><b>Projeto PAPA</b><span></span></div><button type="button" title="Fechar" aria-label="Fechar">×</button></div>`
+            <div class="aviso" role="status"><div><b>Projeto PAPA</b><span></span><small></small></div><button type="button" title="Fechar" aria-label="Fechar">×</button></div>`
         r.querySelector('span').textContent = texto
+        r.querySelector('small').textContent = tecnico ? `Detalhe técnico: ${tecnico}` : ''
         r.querySelector('button').addEventListener('click', () => caixa.remove())
         ;(document.body ?? document.documentElement).appendChild(caixa)
         if (somePorSi) setTimeout(() => caixa.remove(), 3500)
@@ -126,32 +132,75 @@
         for (const tipo of ['input', 'change']) campo.dispatchEvent(new Event(tipo, { bubbles: true }))
     }
 
-    /**
-     * Preenche e-mail e senha. O SEI troca o campo de senha por um campo de texto mascarado + um campo escondido com o
-     * valor de verdade (name="pwdSenha"), e faz isso quando a página termina de carregar: esperar a troca antes de
-     * escrever, senão o que foi escrito é apagado. Devolve false se não tiver certeza de que a senha ficou no lugar certo.
-     */
-    async function preencher({ email, senha }) {
-        const real = () => document.querySelector('input[type="hidden"][name="pwdSenha"]')
-        const inicio = Date.now()
-        while (!real() && document.querySelector('#pwdSenha')?.classList.contains('masked') && Date.now() - inicio < 1500) await esperar(100)
-        const campoEmail = document.querySelector('#txtEmail')
-        const campoSenha = document.querySelector('#pwdSenha')
-        if (!campoEmail || !campoSenha) return false
-        digitar(campoEmail, email)
-        digitar(campoSenha, senha)
-        if (real()) {
-            if (real().value !== senha) real().value = senha
-            return true
-        }
-        return campoSenha.value === senha
+    /** Campos escondidos do formulário que podem guardar a senha de verdade (o SEI mascara o campo que a pessoa vê). */
+    function escondidosDaSenha(form) {
+        return [...(form ?? document).querySelectorAll('input[type="hidden"]')].filter(h => h.name === 'pwdSenha' || (/senha|pwd/i.test(`${h.name} ${h.id}`) && !/^hdnInfra/i.test(h.name || h.id)))
     }
 
-    function enviarLogin() {
-        const botao = document.querySelector('#sbmLogin') ?? document.querySelector('#frmLogin [type="submit"]')
-        if (!botao) return false
-        botao.click() // clique de verdade: passa pela validação do próprio SEI (OnSubmitForm)
-        return true
+    /**
+     * Preenche e-mail e senha como se fossem digitados. O SEI mascara a senha quando a página termina de carregar (troca o
+     * campo por um de texto com bolinhas e guarda o valor de verdade por conta própria): esperar a troca antes de escrever,
+     * senão o que foi escrito é apagado. Como o lugar onde o SEI guarda a senha varia, a conferência aceita três sinais:
+     * o campo escondido com a senha, o campo simples com a senha, ou o campo mascarado pela página com o mesmo tamanho
+     * (foi este o caso visto no SEI/RO em 01/10/2026: preenchido assim, o login entra). `ok: false` = não enviar sozinho.
+     */
+    async function preencher({ email, senha }) {
+        const campoEmail = document.querySelector('#txtEmail')
+        if (!campoEmail || !document.querySelector('#pwdSenha')) return { ok: false, form: null, detalhe: 'campos de login não encontrados' }
+        const form = campoEmail.closest('form') ?? document.querySelector('#frmLogin')
+        const mascaraPronta = () => {
+            const c = document.querySelector('#pwdSenha')
+            return !c || c.type !== 'password' || !c.classList.contains('masked') || escondidosDaSenha(form).length > 0
+        }
+        const inicio = Date.now()
+        while (!mascaraPronta() && Date.now() - inicio < 1500) await esperar(100)
+        const campoSenha = document.querySelector('#pwdSenha')
+        if (!campoSenha) return { ok: false, form, detalhe: 'campo de senha sumiu' }
+        digitar(campoEmail, email)
+        digitar(campoSenha, senha)
+        const escondidos = escondidosDaSenha(form)
+        const exato = escondidos.find(h => h.name === 'pwdSenha')
+        if (exato && exato.value !== senha) exato.value = senha
+        const modo = escondidos.some(h => h.value === senha) ? 'em campo escondido'
+            : campoSenha.value === senha ? 'em campo simples'
+            : campoSenha.value !== '' && campoSenha.value.length === senha.length ? 'mascarada pela página'
+            : ''
+        return { ok: modo !== '', form, detalhe: `senha ${modo || 'NÃO confirmada'} (campo ${campoSenha.type}, ${escondidos.length} escondido(s))` }
+    }
+
+    /**
+     * Aciona o botão de entrar (clique de verdade: passa pela validação do próprio SEI) e diz se o formulário saiu.
+     * Nunca envia duas vezes: só recorre ao envio direto do formulário se o clique não tiver feito nada E a página não
+     * estiver saindo (um login repetido com senha errada contaria em dobro para o bloqueio da conta).
+     */
+    async function enviarLogin(form) {
+        const botao = document.querySelector('#sbmLogin')
+            ?? form?.querySelector('button[type="submit"], input[type="submit"]')
+            ?? [...(form ?? document).querySelectorAll('button, input[type="button"]')].find(b => /^\s*(entrar|acessar)\s*$/i.test(b.textContent || b.value || ''))
+            ?? null
+        let estado = 'sem envio'
+        let saindo = false
+        const aoEnviar = e => { estado = e.defaultPrevented ? 'barrado pela validação do SEI' : 'enviado' }
+        const aoSair = () => { saindo = true }
+        form?.addEventListener('submit', aoEnviar)
+        window.addEventListener('beforeunload', aoSair)
+        window.addEventListener('pagehide', aoSair)
+        try {
+            botao?.click()
+            if (estado === 'sem envio') {
+                await esperar(1200) // o botão pode ter enviado por conta própria, sem o evento "submit"
+                if (!saindo && estado === 'sem envio' && form?.requestSubmit) form.requestSubmit()
+            }
+        } catch { /* formulário recusou o envio direto: fica como está */ }
+        form?.removeEventListener('submit', aoEnviar)
+        const rotulo = botao ? (botao.id ? `#${botao.id}` : botao.tagName.toLowerCase()) : 'não achei'
+        return { enviado: estado === 'enviado' || saindo, detalhe: `botão ${rotulo}; envio: ${saindo && estado === 'sem envio' ? 'pelo botão' : estado}` }
+    }
+
+    /** O login está preenchido, mas quem clica em ENTRAR é a pessoa: o pedido continua valendo e o processo abre depois. */
+    function passarParaManual(r, texto, tecnico) {
+        enviar({ tipo: 'manual' })
+        liberar(`${texto} Clique em ENTRAR: depois eu abro o processo ${r.numero}.`, { manterAviso: true, detalhe: tecnico })
     }
 
     async function passo() {
@@ -166,21 +215,31 @@
 
     async function executarPasso() {
         if (encerrado) return
-        const r = await enviar({ tipo: 'passo', pagina: lerPagina() })
+        const pagina = lerPagina()
+        const r = await enviar({ tipo: 'passo', pagina })
         if (encerrado) return
         if (!r) return liberar('A extensão PAPA foi atualizada ou desligada. Recarregue a página do PAPA e clique de novo.')
         if (r.numero) detalhe.textContent = `Conta ${r.conta} · processo ${r.numero}`
         switch (r.acao) {
-            case 'preencher-login':
+            case 'preencher-login': {
                 titulo.textContent = 'Entrando no SEI…'
-                if (!(await preencher(r.credencial)) || !enviarLogin()) {
+                const preenchido = await preencher(r.credencial)
+                if (!preenchido.form) {
                     enviar({ tipo: 'cancelar' })
-                    liberar('Não consegui preencher o login desta tela do SEI (ela pode ter mudado). Entre manualmente; o e-mail já está no campo.')
+                    return liberar('Não achei os campos de login nesta tela do SEI (ela pode ter mudado). Entre manualmente.', { detalhe: preenchido.detalhe })
                 }
+                if (!preenchido.ok) return passarParaManual(r, `Preenchi o e-mail da conta ${r.conta}, mas não consegui confirmar a senha no campo: confira (ou digite) a senha.`, preenchido.detalhe)
+                const envio = await enviarLogin(preenchido.form)
+                const tecnico = `${preenchido.detalhe}; ${envio.detalhe}`
+                if (!envio.enviado) return passarParaManual(r, `Preenchi o login da conta ${r.conta}, mas o SEI não aceitou o envio automático.`, tecnico)
+                // Enviado. Se em 15 s a tela ainda for esta, o envio não saiu de verdade: devolve a tela e segue no clique da pessoa.
+                setTimeout(() => { if (!encerrado) passarParaManual(r, `Preenchi o login da conta ${r.conta}, mas a tela não mudou.`, tecnico) }, 15000)
                 return
-            case 'aguardar-captcha':
-                await preencher(r.credencial)
-                return liberar(r.mensagem, { manterAviso: true })
+            }
+            case 'aguardar-captcha': {
+                const preenchido = await preencher(r.credencial)
+                return liberar(r.mensagem, { manterAviso: true, detalhe: preenchido.detalhe })
+            }
             case 'abrir-processo': {
                 titulo.textContent = `Abrindo o processo ${r.numero}…`
                 const alvo = ancoras()[r.indice]
@@ -215,7 +274,10 @@
                 liberar()
                 return avisar(`Processo ${r.numero} aberto pelo PAPA.`, { somePorSi: true })
             case 'parar':
-                return liberar(r.mensagem)
+                // Fora da tela de login, diz o que foi visto na página (ajuda a ajustar a busca se a lista do SEI for diferente).
+                return liberar(r.mensagem, {
+                    detalhe: pagina.temLogin ? '' : `${pagina.links.length} link(s) com número nesta tela; próxima página: ${pagina.temProxima ? 'sim' : 'não'}; lista de acessos: ${pagina.noControle ? 'sim' : 'não'}`,
+                })
             default:
                 return liberar() // esta aba não tem pedido do PAPA (ou ele expirou)
         }

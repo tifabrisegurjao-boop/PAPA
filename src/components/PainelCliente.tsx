@@ -2,7 +2,7 @@ import { useState, type MouseEvent, type ReactNode } from 'react'
 import { ArrowLeft, CalendarDays, Clock, Copy, FileText, Folder, History, KeyRound, Landmark, LogIn, Pencil, Plus, Tag, Trash2 } from 'lucide-react'
 import { estadoAcesso } from '../lib/acesso.ts'
 import { rotaDeAcesso } from '../lib/acessoSei.ts'
-import { abrirNoSeiPelaExtensao, extensaoSeiInstalada } from '../lib/extensaoSei.ts'
+import { abrirNoSeiPelaExtensao, versaoDaExtensaoSei } from '../lib/extensaoSei.ts'
 import { montarArvore } from '../lib/arvore.ts'
 import { bloqueioExcluirCliente, bloqueioExcluirProcesso } from '../lib/exclusao.ts'
 import { formatarDataHora } from '../lib/formatacao.ts'
@@ -62,7 +62,8 @@ export default function PainelCliente({
     }
     // Com a extensão "PAPA — Acesso ao SEI" instalada neste navegador, Entrar deixa de abrir o link: a extensão faz o
     // login com a conta do processo e abre o processo lá dentro. Sem ela, o link abre como sempre.
-    const [temExtensao] = useState(extensaoSeiInstalada)
+    const [versaoExtensao] = useState(versaoDaExtensaoSei)
+    const temExtensao = !!versaoExtensao
     const [pedidoSei, setPedidoSei] = useState<{ id: string; texto: string; erro?: boolean }>()
     const entrarNoSei = (evento: MouseEvent<HTMLAnchorElement>) => {
         copiarNumero()
@@ -227,7 +228,7 @@ export default function PainelCliente({
                                     {temExtensao && rota.host ? (
                                         pedidoSei?.id === p.id
                                             ? <span className={`font-semibold ${pedidoSei.erro ? 'text-rose-700' : 'text-salvia-800'}`}>{pedidoSei.texto}</span>
-                                            : <>Extensão PAPA instalada: <strong>Entrar</strong> faz o login e já abre este processo.</>
+                                            : <>Extensão PAPA {versaoExtensao} instalada: <strong>Entrar</strong> faz o login e já abre este processo.</>
                                     ) : copiado === p.id
                                         ? <span className="font-semibold text-salvia-800">Nº copiado: depois de entrar, cole na lista de processos.</span>
                                         : 'Ao clicar em Entrar, o nº é copiado para você colar lá dentro.'}

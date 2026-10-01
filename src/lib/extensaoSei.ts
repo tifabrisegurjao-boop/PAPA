@@ -17,8 +17,8 @@ export interface RespostaSei {
     mensagem?: string
 }
 
-/** A extensão avisa que está instalada marcando o <html> antes de o PAPA carregar. */
-export const extensaoSeiInstalada = (): boolean => !!document.documentElement.dataset.papaExtensaoSei
+/** A extensão avisa que está instalada marcando o <html>, antes de o PAPA carregar, com a versão dela (ex.: "0.1.1"). */
+export const versaoDaExtensaoSei = (): string | undefined => document.documentElement.dataset.papaExtensaoSei || undefined
 
 let contador = 0
 

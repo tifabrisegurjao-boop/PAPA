@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="utf-8" />
+        <title>SEI simulado — processando o login…</title>
+        <script src="chrome-simulado.js"></script>
+        <script>
+            // Faz as vezes da resposta do servidor ao envio do login: redireciona para onde login.html deixou anotado
+            // (lista de acessos se o login valeu, tela de login com erro se não). servidor.demoraMs imita um SEI lento.
+            const estado = seiSimulado.ler()
+            setTimeout(() => location.replace(estado.destino ?? 'login.html'), estado.servidor?.demoraMs ?? 0)
+        </script>
+    </head>
+    <body>
+        <p>processando…</p>
+    </body>
+</html>
